@@ -1,0 +1,130 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  influxdb:
+    image: influxdb:2.7
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USER}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASS}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASS}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_USER: ${MINIO_USER}
+      MINIO_PASS: ${MINIO_PASS}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_USER $$MINIO_PASS &&
+      mc mb local/$$MINIO_BUCKET --ignore-existing &&
+      echo 'Bucket ready.'
+      "
+    restart: "no"
+
+  api:
+    build:
+      context: ./api
+    ports:
+      - "3000:3000"
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
+      PORT: 3000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  consumer:
+    build:
+      context: ./consumer
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USER: ${MINIO_USER}
+      MINIO_PASS: ${MINIO_PASS}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS}
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - influxdb
+
+volumes:
+  rabbitmq_data:
+  influxdb_data:
+  minio_data:
+  grafana_data:
