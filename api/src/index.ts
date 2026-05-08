@@ -6,7 +6,10 @@ import conversionRoute from './routes/conversion';
 import metricsRoute from './routes/metrics';
 import queuesRoute from './routes/queues';
 
-const app = Fastify({ logger: { level: 'warn' } });
+const app = Fastify({
+  logger: { level: 'warn' },
+  bodyLimit: 2 * 1024 * 1024,
+});
 
 app.register(impressionRoute);
 app.register(clickRoute);

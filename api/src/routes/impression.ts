@@ -1,9 +1,19 @@
 import { FastifyInstance } from 'fastify';
 import { publish } from '../queue';
+import { accepted202Schema, impressionBodySchema } from '../schemas/events';
 
 export default async function impressionRoute(app: FastifyInstance) {
-  app.post('/api/events/impression', async (request, reply) => {
-    publish('impressions', request.body as object);
-    reply.status(202).send({ accepted: true });
-  });
+  app.post(
+    '/api/events/impression',
+    {
+      schema: {
+        body: impressionBodySchema,
+        response: { 202: accepted202Schema },
+      },
+    },
+    async (request, reply) => {
+      await publish('impressions', request.body as object);
+      return reply.status(202).send({ accepted: true });
+    },
+  );
 }

@@ -13,11 +13,71 @@ const BADGE: Record<string, string> = {
   conversions: 'bg-emerald-500/10 text-emerald-400',
 };
 
-const DEFAULT_PAYLOAD = JSON.stringify({ ad_id: 'ad_001', user_id: 'usr_123', campaign_id: 'camp_42' }, null, 2);
+const SAMPLE_PAYLOADS: Record<string, string> = {
+  Impression: JSON.stringify(
+    {
+      impression_id: 'imp-demo-1',
+      user_ip: '192.168.1.1',
+      user_agent: 'Mozilla/5.0 (demo)',
+      timestamp: '2026-05-10T14:30:00Z',
+      state: 'CA',
+      search_keywords: 'running shoes',
+      session_id: 'session-demo',
+      ads: [
+        {
+          advertiser: { advertiser_id: 'adv-1', advertiser_name: 'Demo Co' },
+          campaign: { campaign_id: 'camp-1', campaign_name: 'Demo' },
+          ad: {
+            ad_id: 'ad-1',
+            ad_name: 'Demo ad',
+            ad_text: 'Text',
+            ad_link: 'https://example.com',
+            ad_position: 1,
+            ad_format: 'banner_728x90',
+          },
+        },
+      ],
+    },
+    null,
+    2,
+  ),
+  Click: JSON.stringify(
+    {
+      click_id: 'click-demo-1',
+      impression_id: 'imp-demo-1',
+      timestamp: '2026-05-10T14:30:05Z',
+      clicked_ad: {
+        ad_id: 'ad-1',
+        ad_position: 1,
+        click_coordinates: { x: 250, y: 400, normalized_x: 0.65, normalized_y: 0.8 },
+        time_to_click: 5.2,
+      },
+      user_info: { user_ip: '192.168.1.1', state: 'CA', session_id: 'session-demo' },
+    },
+    null,
+    2,
+  ),
+  Conversion: JSON.stringify(
+    {
+      conversion_id: 'conv-demo-1',
+      click_id: 'click-demo-1',
+      impression_id: 'imp-demo-1',
+      timestamp: '2026-05-10T14:45:00Z',
+      conversion_type: 'purchase',
+      conversion_value: 59.99,
+      conversion_currency: 'USD',
+      conversion_attributes: { order_id: 'order-1', items: [{ product_id: 'p1', quantity: 1, unit_price: 59.99 }] },
+      attribution_info: { time_to_convert: 900, attribution_model: 'last_click' },
+      user_info: { user_ip: '192.168.1.1', state: 'CA', session_id: 'session-demo' },
+    },
+    null,
+    2,
+  ),
+};
 
 export default function Events() {
   const [eventType, setEventType] = useState('Impression');
-  const [payload, setPayload] = useState(DEFAULT_PAYLOAD);
+  const [payload, setPayload] = useState(SAMPLE_PAYLOADS.Impression);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
   const [stream, setStream] = useState<RecentEvent[]>([]);
   const [paused, setPaused] = useState(false);
@@ -90,7 +150,11 @@ export default function Events() {
                 </label>
                 <select
                   value={eventType}
-                  onChange={(e) => setEventType(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEventType(v);
+                    setPayload(SAMPLE_PAYLOADS[v] ?? SAMPLE_PAYLOADS.Impression);
+                  }}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option>Impression</option>

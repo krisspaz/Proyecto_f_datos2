@@ -55,9 +55,16 @@ export async function connectQueue(): Promise<void> {
   await setupChannel(process.env.RABBITMQ_URL!);
 }
 
-export function publish(queue: QueueName, payload: object): void {
-  channel.publish(EXCHANGE, queue, Buffer.from(JSON.stringify(payload)), {
-    persistent: true,
-    contentType: 'application/json',
-  });
+/**
+ * Encola el JSON en la routing key = nombre de cola (impressions | clicks | conversions).
+ * Espera a 'drain' si el buffer TCP está lleno para no perder mensajes bajo carga.
+ */
+export async function publish(queue: QueueName, payload: object): Promise<void> {
+  const body = Buffer.from(JSON.stringify(payload));
+  const opts = { persistent: true, contentType: 'application/json' as const };
+  for (;;) {
+    const ok = channel.publish(EXCHANGE, queue, body, opts);
+    if (ok) return;
+    await new Promise<void>((resolve) => channel.once('drain', resolve));
+  }
 }
