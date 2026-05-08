@@ -129,7 +129,7 @@
 <span class="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">+12.4%</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="text-3xl font-headline font-bold text-white tracking-tight">1,284,902</span>
+<span id="stat-impressions" class="text-3xl font-headline font-bold text-white tracking-tight">0</span>
 <span class="material-symbols-outlined text-indigo-500 mb-1">visibility</span>
 </div>
 </div>
@@ -139,7 +139,7 @@
 <span class="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">+8.1%</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="text-3xl font-headline font-bold text-white tracking-tight">48,231</span>
+<span id="stat-clicks" class="text-3xl font-headline font-bold text-white tracking-tight">0</span>
 <span class="material-symbols-outlined text-indigo-500 mb-1">ads_click</span>
 </div>
 </div>
@@ -149,7 +149,7 @@
 <span class="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">+5.2%</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="text-3xl font-headline font-bold text-white tracking-tight">3,847</span>
+<span id="stat-conversions" class="text-3xl font-headline font-bold text-white tracking-tight">0</span>
 <span class="material-symbols-outlined text-indigo-500 mb-1">shopping_cart</span>
 </div>
 </div>
@@ -159,7 +159,7 @@
 <span class="text-slate-400 text-xs font-bold bg-slate-800 px-2 py-0.5 rounded-full">Steady</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="text-3xl font-headline font-bold text-white tracking-tight">3.75%</span>
+<span id="stat-ctr" class="text-3xl font-headline font-bold text-white tracking-tight">0%</span>
 <span class="material-symbols-outlined text-indigo-500 mb-1">insights</span>
 </div>
 </div>
@@ -185,34 +185,7 @@
 </div>
 </div>
 </div>
-<div class="h-80 w-full p-6 flex items-end justify-between gap-1 relative overflow-hidden">
-<!-- Abstract Visualization Representation -->
-<div class="absolute inset-x-6 top-10 bottom-20 flex items-end gap-1.5 opacity-40">
-<!-- Bars to simulate a bar-style background or grid -->
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[60%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[75%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[40%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[85%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[95%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[60%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[50%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[45%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[80%]"></div>
-<div class="flex-1 bg-indigo-500/20 rounded-t h-[65%]"></div>
-</div>
-<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none">
-<path d="M0,240 Q100,180 200,220 T400,140 T600,180 T800,100 L800,320 L0,320 Z" fill="rgba(99, 102, 241, 0.1)"></path>
-<path d="M0,240 Q100,180 200,220 T400,140 T600,180 T800,100" fill="none" stroke="#6366f1" stroke-width="3"></path>
-</svg>
-<div class="absolute bottom-6 left-6 right-6 flex justify-between text-[10px] text-slate-500 font-label font-bold uppercase">
-<span>00:00</span>
-<span>04:00</span>
-<span>08:00</span>
-<span>12:00</span>
-<span>16:00</span>
-<span>20:00</span>
-</div>
-</div>
+<div class="h-80 w-full p-4"><canvas id="timeseries-chart"></canvas></div>
 </div>
 <!-- Recent Events Table -->
 <div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
@@ -230,7 +203,7 @@
 <th class="px-6 py-3 text-right">Status</th>
 </tr>
 </thead>
-<tbody class="text-sm divide-y divide-slate-800">
+<tbody id="events-tbody" class="text-sm divide-y divide-slate-800">
 <tr class="hover:bg-slate-800/30 transition-colors">
 <td class="px-6 py-4 text-slate-400 font-mono text-xs">2023-11-20 14:24:01.032</td>
 <td class="px-6 py-4">
@@ -293,7 +266,7 @@
 </div>
 </div>
 <div class="text-right">
-<p class="text-lg font-headline font-bold text-indigo-400">142 msgs</p>
+<p id="queue-impressions" class="text-lg font-headline font-bold text-indigo-400">— msgs</p>
 <p class="text-emerald-400 text-[10px] font-bold">Healthy</p>
 </div>
 </div>
@@ -306,7 +279,7 @@
 </div>
 </div>
 <div class="text-right">
-<p class="text-lg font-headline font-bold text-amber-500">38 msgs</p>
+<p id="queue-clicks" class="text-lg font-headline font-bold text-amber-500">— msgs</p>
 <p class="text-amber-400 text-[10px] font-bold">Latency Warning</p>
 </div>
 </div>
@@ -319,7 +292,7 @@
 </div>
 </div>
 <div class="text-right">
-<p class="text-lg font-headline font-bold text-emerald-500">11 msgs</p>
+<p id="queue-conversions" class="text-lg font-headline font-bold text-emerald-500">— msgs</p>
 <p class="text-emerald-400 text-[10px] font-bold">Healthy</p>
 </div>
 </div>
@@ -366,4 +339,96 @@
 </div>
 </div>
 </main>
-</body></html>
+</body></html><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let chart = null;
+
+function fmt(n) { return Number(n).toLocaleString('en-US'); }
+
+function typeBadge(type) {
+  const map = {
+    impressions: 'bg-indigo-500/10 text-indigo-400',
+    clicks:      'bg-amber-500/10 text-amber-500',
+    conversions: 'bg-emerald-500/10 text-emerald-400',
+  };
+  const cls = map[type] || 'bg-slate-500/10 text-slate-400';
+  return `<span class="${cls} text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">${type}</span>`;
+}
+
+function initChart(labels, imp, clk, conv) {
+  const ctx = document.getElementById('timeseries-chart');
+  if (!ctx) return;
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Impressions', data: imp, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', tension: 0.4, fill: true, pointRadius: 2 },
+        { label: 'Clicks',      data: clk, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.05)', tension: 0.4, fill: false, pointRadius: 2 },
+        { label: 'Conversions', data: conv, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.05)', tension: 0.4, fill: false, pointRadius: 2 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
+        y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
+      },
+    },
+  });
+}
+
+async function update() {
+  try {
+    const [summary, events, queues, ts] = await Promise.all([
+      fetch('/api/metrics/summary').then(r => r.json()),
+      fetch('/api/events/recent').then(r => r.json()),
+      fetch('/api/queues/status').then(r => r.json()),
+      fetch('/api/metrics/timeseries').then(r => r.json()),
+    ]);
+
+    // KPIs
+    document.getElementById('stat-impressions').textContent = fmt(summary.impressions);
+    document.getElementById('stat-clicks').textContent      = fmt(summary.clicks);
+    document.getElementById('stat-conversions').textContent = fmt(summary.conversions);
+    document.getElementById('stat-ctr').textContent         = summary.ctr + '%';
+
+    // Queue status
+    const qmap = {};
+    queues.forEach(q => { qmap[q.name] = q; });
+    ['impressions','clicks','conversions'].forEach(name => {
+      const el = document.getElementById('queue-' + name);
+      if (el && qmap[name] !== undefined) el.textContent = qmap[name].messages + ' msgs';
+    });
+
+    // Recent events table
+    const tbody = document.getElementById('events-tbody');
+    if (tbody) {
+      tbody.innerHTML = events.length === 0
+        ? '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500 text-sm">Esperando eventos...</td></tr>'
+        : events.map(e => {
+            const ts = new Date(e.timestamp).toLocaleString('es-GT', { hour12: false });
+            return `<tr class="hover:bg-slate-800/30 transition-colors">
+              <td class="px-6 py-4 text-slate-400 font-mono text-xs">${ts}</td>
+              <td class="px-6 py-4">${typeBadge(e.type)}</td>
+              <td class="px-6 py-4 text-slate-500 font-mono text-xs truncate max-w-xs">${e.payload.slice(0, 80)}</td>
+              <td class="px-6 py-4 text-right"><span class="text-emerald-400 flex items-center justify-end gap-1.5 font-medium"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>OK</span></td>
+            </tr>`;
+          }).join('');
+    }
+
+    // Timeseries chart
+    if (ts.length > 0) {
+      const labels = ts.map(p => new Date(p.time).toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', hour12: false }));
+      initChart(labels, ts.map(p => p.impressions||0), ts.map(p => p.clicks||0), ts.map(p => p.conversions||0));
+    }
+  } catch(e) {
+    console.warn('fetch error:', e.message);
+  }
+}
+
+update();
+setInterval(update, 10000);
+</script>

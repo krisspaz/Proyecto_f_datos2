@@ -3,12 +3,16 @@ import { connectQueue } from './queue';
 import impressionRoute from './routes/impression';
 import clickRoute from './routes/click';
 import conversionRoute from './routes/conversion';
+import metricsRoute from './routes/metrics';
+import queuesRoute from './routes/queues';
 
 const app = Fastify({ logger: { level: 'warn' } });
 
 app.register(impressionRoute);
 app.register(clickRoute);
 app.register(conversionRoute);
+app.register(metricsRoute);
+app.register(queuesRoute);
 
 app.get('/health', async () => ({ status: 'ok' }));
 
