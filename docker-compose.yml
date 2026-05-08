@@ -76,10 +76,10 @@ services:
     build:
       context: ./api
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
-      PORT: 3000
+      PORT: 4000
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -104,6 +104,13 @@ services:
         condition: service_healthy
       influxdb:
         condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
     restart: unless-stopped
 
   grafana:

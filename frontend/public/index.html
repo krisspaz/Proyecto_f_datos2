@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Public+Sans:wght@300..800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617'
+                        },
+                        indigo: {
+                            400: '#818cf8',
+                            500: '#6366f1'
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Geist"],
+                        "display": ["Geist"],
+                        "body": ["Geist"],
+                        "label": ["Public Sans"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #020617;
+            color: #f8fafc;
+        }
+        .chart-gradient {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0) 100%);
+        }
+    </style>
+</head>
+<body class="font-body antialiased">
+<!-- Sidebar Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full flex flex-col pt-4 pb-8 bg-slate-900 border-r border-slate-800 shadow-xl w-64 z-50">
+<div class="px-6 mb-8">
+<h1 class="text-indigo-400 font-headline font-extrabold text-xl">Signal Catcher</h1>
+<p class="text-slate-500 text-xs font-medium">Pipeline Monitoring</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a href="index.html" class="bg-indigo-500/10 text-indigo-400 border-r-4 border-indigo-500 flex items-center gap-3 px-4 py-3 cursor-pointer no-underline">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body text-sm font-medium">Dashboard</span>
+</a>
+<a href="events.html" class="text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 no-underline">
+<span class="material-symbols-outlined">dynamic_feed</span>
+<span class="font-body text-sm font-medium">Events</span>
+</a>
+<a href="queue-health.html" class="text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 no-underline">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-body text-sm font-medium">Queue Health</span>
+</a>
+<a href="#" class="text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 no-underline">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body text-sm font-medium">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-1">
+<button class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 px-4 rounded flex items-center justify-center gap-2 mb-6 transition-colors shadow-lg shadow-indigo-500/20 active:scale-95">
+<span class="material-symbols-outlined text-sm">add</span>
+<span class="text-sm">New Pipeline</span>
+</button>
+<div class="text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-200 rounded">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body text-sm font-medium">Support</span>
+</div>
+<div class="text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-200 rounded">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body text-sm font-medium">Documentation</span>
+</div>
+</div>
+</aside>
+<!-- Top Navigation Bar Shell -->
+<header class="fixed top-0 right-0 left-64 bg-slate-950 border-b border-slate-800 shadow-sm flex justify-between items-center px-6 h-16 z-40">
+<div class="flex items-center gap-4">
+<span class="text-indigo-400 font-headline font-black text-2xl tracking-tighter">Signal Catcher</span>
+<div class="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+<div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+<span class="text-emerald-400 text-xs font-bold font-label tracking-wide uppercase">System Healthy</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group">
+<input class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-300" placeholder="Search events..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+</div>
+<div class="flex items-center gap-4 text-slate-400">
+<div class="p-2 hover:bg-slate-800/50 rounded-full transition-colors relative cursor-pointer active:scale-95 duration-150">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-slate-950"></span>
+</div>
+<div class="flex items-center gap-3 p-1 pr-3 hover:bg-slate-800/50 rounded-full cursor-pointer transition-colors active:scale-95 duration-150">
+<img alt="System Operator" class="w-8 h-8 rounded-full border border-slate-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2oHpQ6nh9H_L6EP7W1kt8w6QNxUvtQNR18xA-e-v-TpKWu4tiBnjE1_ZsOBqFUOfdLIDVjQW75G2P1Ch0c-eG3GG5-JCS-8f2Xr7qwWh0kMjDApNAKeOwUcBvWcJUb5UWnAPsvSHJMLw117RhESV8gfTcqCtIYqZQCJOhOIsQe9quelGNlnoWmkgK6ecOcSajxiKHiILVnnvkbtJehX4xvBU6jq6wSgLsZrbIF7e7U_DB36YxD7QUiByU-bwcpErfZ2WX7Mme5u0"/>
+<span class="text-sm font-medium text-slate-200">System Operator</span>
+<span class="material-symbols-outlined text-lg">expand_more</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 px-8 pb-12">
+<!-- KPI Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg group hover:border-indigo-500/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-slate-500 font-label text-xs font-bold uppercase tracking-widest">Impressions</span>
+<span class="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">+12.4%</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-headline font-bold text-white tracking-tight">1,284,902</span>
+<span class="material-symbols-outlined text-indigo-500 mb-1">visibility</span>
+</div>
+</div>
+<div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg group hover:border-indigo-500/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-slate-500 font-label text-xs font-bold uppercase tracking-widest">Clicks</span>
+<span class="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">+8.1%</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-headline font-bold text-white tracking-tight">48,231</span>
+<span class="material-symbols-outlined text-indigo-500 mb-1">ads_click</span>
+</div>
+</div>
+<div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg group hover:border-indigo-500/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-slate-500 font-label text-xs font-bold uppercase tracking-widest">Conversions</span>
+<span class="text-emerald-400 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">+5.2%</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-headline font-bold text-white tracking-tight">3,847</span>
+<span class="material-symbols-outlined text-indigo-500 mb-1">shopping_cart</span>
+</div>
+</div>
+<div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-lg group hover:border-indigo-500/50 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<span class="text-slate-500 font-label text-xs font-bold uppercase tracking-widest">CTR</span>
+<span class="text-slate-400 text-xs font-bold bg-slate-800 px-2 py-0.5 rounded-full">Steady</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-headline font-bold text-white tracking-tight">3.75%</span>
+<span class="material-symbols-outlined text-indigo-500 mb-1">insights</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Large Area Chart Column -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+<h3 class="font-headline font-bold text-slate-200">Event Volume Over Time (24h)</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+<span class="text-xs text-slate-400 font-label">Impressions</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+<span class="text-xs text-slate-400 font-label">Clicks</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+<span class="text-xs text-slate-400 font-label">Conversions</span>
+</div>
+</div>
+</div>
+<div class="h-80 w-full p-6 flex items-end justify-between gap-1 relative overflow-hidden">
+<!-- Abstract Visualization Representation -->
+<div class="absolute inset-x-6 top-10 bottom-20 flex items-end gap-1.5 opacity-40">
+<!-- Bars to simulate a bar-style background or grid -->
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[60%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[75%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[40%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[85%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[95%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[60%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[50%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[45%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[80%]"></div>
+<div class="flex-1 bg-indigo-500/20 rounded-t h-[65%]"></div>
+</div>
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none">
+<path d="M0,240 Q100,180 200,220 T400,140 T600,180 T800,100 L800,320 L0,320 Z" fill="rgba(99, 102, 241, 0.1)"></path>
+<path d="M0,240 Q100,180 200,220 T400,140 T600,180 T800,100" fill="none" stroke="#6366f1" stroke-width="3"></path>
+</svg>
+<div class="absolute bottom-6 left-6 right-6 flex justify-between text-[10px] text-slate-500 font-label font-bold uppercase">
+<span>00:00</span>
+<span>04:00</span>
+<span>08:00</span>
+<span>12:00</span>
+<span>16:00</span>
+<span>20:00</span>
+</div>
+</div>
+</div>
+<!-- Recent Events Table -->
+<div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+<h3 class="font-headline font-bold text-slate-200">Recent Events</h3>
+<button class="text-indigo-400 text-xs font-bold hover:underline">View All Logs</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] text-slate-500 font-label font-bold uppercase tracking-widest bg-slate-950/50">
+<th class="px-6 py-3">Timestamp</th>
+<th class="px-6 py-3">Type</th>
+<th class="px-6 py-3">Payload Snippet</th>
+<th class="px-6 py-3 text-right">Status</th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-slate-800">
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4 text-slate-400 font-mono text-xs">2023-11-20 14:24:01.032</td>
+<td class="px-6 py-4">
+<span class="bg-indigo-500/10 text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Impression</span>
+</td>
+<td class="px-6 py-4 text-slate-500 font-mono text-xs truncate max-w-xs">{ "ad_id": "902", "pos": "top" }</td>
+<td class="px-6 py-4 text-right">
+<span class="text-emerald-400 flex items-center justify-end gap-1.5 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Success
+                                        </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4 text-slate-400 font-mono text-xs">2023-11-20 14:23:58.841</td>
+<td class="px-6 py-4">
+<span class="bg-amber-500/10 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Click</span>
+</td>
+<td class="px-6 py-4 text-slate-500 font-mono text-xs truncate max-w-xs">{ "target": "product_23", "id": "48" }</td>
+<td class="px-6 py-4 text-right">
+<span class="text-amber-400 flex items-center justify-end gap-1.5 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                            Pending
+                                        </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4 text-slate-400 font-mono text-xs">2023-11-20 14:23:55.120</td>
+<td class="px-6 py-4">
+<span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Conversion</span>
+</td>
+<td class="px-6 py-4 text-slate-500 font-mono text-xs truncate max-w-xs">{ "order_id": "TX-9912", "val": 128.00 }</td>
+<td class="px-6 py-4 text-right">
+<span class="text-emerald-400 flex items-center justify-end gap-1.5 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Success
+                                        </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Side Panels Column -->
+<div class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Queue Status Panel -->
+<div class="bg-slate-900 rounded-xl border border-slate-800 shadow-xl p-6">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline font-bold text-slate-200">Queue Status</h3>
+<span class="material-symbols-outlined text-slate-500">sync</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-4 bg-slate-950 rounded-lg border border-slate-800 group hover:border-indigo-500/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-indigo-500 rounded-full"></div>
+<div>
+<p class="text-xs font-bold text-slate-200 font-label uppercase">impressions</p>
+<p class="text-slate-500 text-[10px]">Real-time stream</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-lg font-headline font-bold text-indigo-400">142 msgs</p>
+<p class="text-emerald-400 text-[10px] font-bold">Healthy</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-950 rounded-lg border border-slate-800 group hover:border-indigo-500/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-amber-500 rounded-full"></div>
+<div>
+<p class="text-xs font-bold text-slate-200 font-label uppercase">clicks</p>
+<p class="text-slate-500 text-[10px]">Validation queue</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-lg font-headline font-bold text-amber-500">38 msgs</p>
+<p class="text-amber-400 text-[10px] font-bold">Latency Warning</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-950 rounded-lg border border-slate-800 group hover:border-indigo-500/30 transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-emerald-500 rounded-full"></div>
+<div>
+<p class="text-xs font-bold text-slate-200 font-label uppercase">conversions</p>
+<p class="text-slate-500 text-[10px]">Attribution engine</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-lg font-headline font-bold text-emerald-500">11 msgs</p>
+<p class="text-emerald-400 text-[10px] font-bold">Healthy</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-950/50 rounded-lg border border-slate-800 border-dashed">
+<div class="flex items-center gap-3 opacity-60">
+<div class="w-2 h-8 bg-rose-500/40 rounded-full"></div>
+<div>
+<p class="text-xs font-bold text-slate-400 font-label uppercase">DLQ</p>
+<p class="text-slate-600 text-[10px]">Dead Letter Queue</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-lg font-headline font-bold text-slate-600">Empty</p>
+<p class="text-slate-700 text-[10px] font-bold">No Errors</p>
+</div>
+</div>
+</div>
+</div>
+<!-- System Performance Overview -->
+<div class="bg-indigo-600/5 rounded-xl border border-indigo-500/20 shadow-xl p-6 relative overflow-hidden group">
+<div class="relative z-10">
+<h3 class="font-headline font-bold text-indigo-400 mb-2">Ingestion Throughput</h3>
+<p class="text-2xl font-headline font-black text-white">4.2 GB/s</p>
+<p class="text-slate-400 text-xs mt-1 mb-4">Pipeline capacity: 85%</p>
+<div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-indigo-500 h-full w-[85%] rounded-full"></div>
+</div>
+</div>
+<div class="absolute -right-8 -bottom-8 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]">bolt</span>
+</div>
+</div>
+<!-- Image Contextual Component -->
+<div class="rounded-xl border border-slate-800 overflow-hidden shadow-xl">
+<img class="w-full h-40 object-cover opacity-80 grayscale hover:grayscale-0 transition-all duration-700" data-alt="A futuristic cybersecurity control room with glowing blue digital displays and server racks in the background. Multiple screens show complex data streams and matrix-style visualizations of network traffic in a dark, high-tech environment. The lighting is dominated by neon indigo and cool cyan tones, creating a professional, secure, and advanced atmosphere for monitoring global signals." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZlPWKp2GF8CCOngx37a_VFowxt2NMcJeym7ZTHF9HF4VljqD00NFtMugR44zez1CNitY2Ts5Yp0XGHpnXVBETfkZbxRGfpDIYZOW0OZgnAfTxCnmCUJty7qs8HYTcLl9s0yO3CB6qMYehp3qYsu1GHyg9_6M9Eq_soO247TnxomWPk0AjO2G1NEh0Ys5qXbIZKquVVwqrtLisc0wJsg2Bfl5S-2PEYmLcrkYbXE03M1Ss7YG3KrdgCLfM5CrnMe7zu_lZuo-goxc"/>
+<div class="bg-slate-900 p-4 border-t border-slate-800">
+<div class="flex items-center gap-2 mb-1">
+<span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+<p class="text-[10px] font-label font-bold text-slate-400 uppercase tracking-widest">Global Node Status</p>
+</div>
+<p class="text-sm font-medium text-slate-200">Processing signals from 14 edge locations</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>
