@@ -46,7 +46,11 @@ function minioKey(queue: QueueName, now: Date): string {
 }
 
 function buildPoint(queue: QueueName, payload: Payload, now: Date): Point {
-  const point = new Point('events').tag('type', queue).intField('count', 1).timestamp(now);
+  const point = new Point('events')
+    .tag('type', queue)
+    .intField('count', 1)
+    .stringField('payload', JSON.stringify(payload).slice(0, 512))
+    .timestamp(now);
 
   if (queue === 'impressions') {
     const ads = payload.ads as Array<Record<string, Record<string, string>>> | undefined;

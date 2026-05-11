@@ -61,9 +61,7 @@ export const conversionBodySchema = {
     impression_id: { type: 'string' },
     timestamp: { type: 'string' },
     conversion_type: { type: 'string' },
-    conversion_value: {
-      oneOf: [{ type: 'number' }, { type: 'string' }],
-    },
+    conversion_value: { type: 'number' },
     conversion_currency: { type: 'string' },
     conversion_attributes: { type: 'object', additionalProperties: true },
     attribution_info: { type: 'object', additionalProperties: true },
