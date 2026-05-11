@@ -4,6 +4,9 @@ import { queryApi } from '../influx';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
 
+const VALID_WINDOWS = new Set(['10s', '30s', '1m', '5m', '15m', '30m', '1h']);
+const VALID_RANGES  = new Set(['15m', '30m', '1h', '2h', '6h', '12h', '24h']);
+
 export default async function metricsRoute(app: FastifyInstance) {
   app.get('/api/metrics/summary', async (_req, reply) => {
     const bucket = process.env.INFLUXDB_BUCKET!;
@@ -67,13 +70,19 @@ export default async function metricsRoute(app: FastifyInstance) {
     reply.send(events);
   });
 
-  app.get('/api/metrics/timeseries', async (_req, reply) => {
+  app.get<{ Querystring: { window?: string; range?: string } }>(
+    '/api/metrics/timeseries', async (req, reply) => {
+    const rawWindow = String(req.query.window ?? '1m');
+    const rawRange  = String(req.query.range  ?? '2h');
+    const win   = VALID_WINDOWS.has(rawWindow) ? rawWindow : '1m';
+    const range = VALID_RANGES.has(rawRange)   ? rawRange  : '2h';
+
     const bucket = process.env.INFLUXDB_BUCKET!;
     const query = `
       from(bucket: "${bucket}")
-        |> range(start: -24h)
+        |> range(start: -${range})
         |> filter(fn: (r) => r._measurement == "events" and r._field == "count")
-        |> aggregateWindow(every: 1h, fn: sum, createEmpty: true)
+        |> aggregateWindow(every: ${win}, fn: sum, createEmpty: true)
         |> fill(value: 0)
     `;
 
@@ -100,3 +109,4 @@ export default async function metricsRoute(app: FastifyInstance) {
     reply.send(result);
   });
 }
+

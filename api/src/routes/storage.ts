@@ -1,12 +1,14 @@
 import { FastifyInstance } from 'fastify';
-import { Client as MinioClient } from 'minio';
+import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
-const minio = new MinioClient({
-  endPoint: process.env.MINIO_ENDPOINT ?? 'minio',
-  port: Number(process.env.MINIO_PORT ?? 9000),
-  useSSL: false,
-  accessKey: process.env.MINIO_USER!,
-  secretKey: process.env.MINIO_PASS!,
+const s3 = new S3Client({
+  endpoint: `http://${process.env.MINIO_ENDPOINT ?? 'minio'}:${process.env.MINIO_PORT ?? 9000}`,
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId:     process.env.MINIO_USER!,
+    secretAccessKey: process.env.MINIO_PASS!,
+  },
+  forcePathStyle: true,
 });
 
 type PartitionQuery = {
@@ -19,79 +21,70 @@ type PartitionQuery = {
   };
 };
 
-// Builds the MinIO prefix following the partition contract:
-// events/{event_type}/year=YYYY/month=MM/day=DD/hour=HH/
-function partitionPrefix(
-  event_type: string,
-  year: string,
-  month: string,
-  day: string,
-  hour: string,
-): string {
+function partitionPrefix(event_type: string, year: string, month: string, day: string, hour: string) {
   return `events/${event_type}/year=${year}/month=${month}/day=${day}/hour=${hour}/`;
 }
 
 function nowParts() {
   const n = new Date();
   return {
-    year: String(n.getFullYear()),
+    year:  String(n.getFullYear()),
     month: String(n.getMonth() + 1).padStart(2, '0'),
-    day: String(n.getDate()).padStart(2, '0'),
-    hour: String(n.getHours()).padStart(2, '0'),
+    day:   String(n.getDate()).padStart(2, '0'),
+    hour:  String(n.getHours()).padStart(2, '0'),
   };
 }
 
+type ObjInfo = { name: string; size: number; lastModified: string | null };
+
+// Paginates through ListObjectsV2 — handles partitions with millions of files.
+// Stops at maxCount to avoid timeout; returns { objects, total, truncated }.
+async function listObjectsPaged(bucket: string, prefix: string, maxCount = 10_000) {
+  const objects: ObjInfo[] = [];
+  let continuationToken: string | undefined;
+  let truncated = false;
+
+  do {
+    const resp = await s3.send(new ListObjectsV2Command({
+      Bucket:            bucket,
+      Prefix:            prefix,
+      MaxKeys:           1000,
+      ContinuationToken: continuationToken,
+    }));
+
+    for (const obj of resp.Contents ?? []) {
+      if (objects.length >= maxCount) { truncated = true; break; }
+      objects.push({
+        name:         obj.Key ?? '',
+        size:         obj.Size ?? 0,
+        lastModified: obj.LastModified ? obj.LastModified.toISOString() : null,
+      });
+    }
+
+    continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+  } while (continuationToken && !truncated);
+
+  return { objects, total: objects.length, truncated };
+}
+
 export default async function storageRoute(app: FastifyInstance) {
-  // Lists raw event files in a partition (defaults to current hour).
-  // This satisfies the requirement: "at least one report query must read from object storage".
   app.get<PartitionQuery>('/api/storage/list', async (req, reply) => {
     const np = nowParts();
-    const {
-      event_type = 'impressions',
-      year = np.year,
-      month = np.month,
-      day = np.day,
-      hour = np.hour,
-    } = req.query;
-
+    const { event_type = 'impressions', year = np.year, month = np.month, day = np.day, hour = np.hour } = req.query;
     const prefix = partitionPrefix(event_type, year, month, day, hour);
     const bucket = process.env.MINIO_BUCKET!;
-    const objects: { name: string; size: number; lastModified: Date | null }[] = [];
 
-    await new Promise<void>((resolve, reject) => {
-      const stream = minio.listObjects(bucket, prefix, true);
-      stream.on('data', (obj) => {
-        if (obj.name) objects.push({ name: obj.name, size: obj.size ?? 0, lastModified: obj.lastModified ?? null });
-      });
-      stream.on('error', reject);
-      stream.on('end', resolve);
-    });
-
-    reply.send({ prefix, count: objects.length, objects: objects.slice(0, 200) });
+    const { objects, total, truncated } = await listObjectsPaged(bucket, prefix, 200);
+    reply.send({ prefix, count: total, truncated, objects });
   });
 
-  // Returns the file count per partition — used to cross-check with InfluxDB totals.
   app.get<PartitionQuery>('/api/storage/count', async (req, reply) => {
     const np = nowParts();
-    const {
-      event_type = 'impressions',
-      year = np.year,
-      month = np.month,
-      day = np.day,
-      hour = np.hour,
-    } = req.query;
-
+    const { event_type = 'impressions', year = np.year, month = np.month, day = np.day, hour = np.hour } = req.query;
     const prefix = partitionPrefix(event_type, year, month, day, hour);
     const bucket = process.env.MINIO_BUCKET!;
 
-    let count = 0;
-    await new Promise<void>((resolve, reject) => {
-      const stream = minio.listObjects(bucket, prefix, true);
-      stream.on('data', () => count++);
-      stream.on('error', reject);
-      stream.on('end', resolve);
-    });
-
-    reply.send({ event_type, year, month, day, hour, prefix, count });
+    const { total, truncated } = await listObjectsPaged(bucket, prefix, 10_000);
+    reply.send({ event_type, year, month, day, hour, prefix, count: total, truncated });
   });
 }

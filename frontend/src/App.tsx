@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import QueueHealth from './pages/QueueHealth';
+import Storage from './pages/Storage';
 
 export default function App() {
   return (
@@ -10,10 +11,11 @@ export default function App() {
       <Sidebar />
       <main className="ml-64 flex-1 overflow-y-auto">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/events" element={<Events />} />
+          <Route path="/"            element={<Dashboard />} />
+          <Route path="/events"      element={<Events />} />
           <Route path="/queue-health" element={<QueueHealth />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/storage"     element={<Storage />} />
+          <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
