@@ -3,7 +3,7 @@
   "title": "Signal Catcher",
   "tags": ["signal-catcher"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
@@ -92,7 +92,7 @@
       "id": 4,
       "type": "gauge",
       "title": "CTR % (last hour)",
-      "gridPos": { "x": 15, "y": 0, "w": 5, "h": 4 },
+      "gridPos": { "x": 15, "y": 0, "w": 4, "h": 4 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -104,6 +104,7 @@
           "min": 0,
           "max": 20,
           "unit": "percent",
+          "decimals": 2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -117,7 +118,7 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "influxdb-signal-catcher" },
-          "query": "import \"math\"\n\nclks = from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and r.type == \"clicks\")\n  |> sum()\n\nimps = from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and r.type == \"impressions\")\n  |> sum()\n\njoin(tables: {clks: clks, imps: imps}, on: [\"_measurement\"])\n  |> map(fn: (r) => ({_value: if r._value_imps > 0.0 then (r._value_clks / r._value_imps) * 100.0 else 0.0, _field: \"ctr\", _time: now()}))",
+          "query": "from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and (r.type == \"impressions\" or r.type == \"clicks\"))\n  |> group(columns: [\"type\"])\n  |> sum()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"type\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({\n      _value: if exists r.impressions and r.impressions > 0\n        then (float(v: r.clicks) / float(v: r.impressions)) * 100.0\n        else 0.0,\n      _field: \"CTR\",\n      _time: now()\n    }))",
           "refId": "A"
         }
       ]
@@ -126,7 +127,7 @@
       "id": 5,
       "type": "gauge",
       "title": "Conversion Rate % (last hour)",
-      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "gridPos": { "x": 19, "y": 0, "w": 5, "h": 4 },
       "options": {
         "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
@@ -138,6 +139,7 @@
           "min": 0,
           "max": 20,
           "unit": "percent",
+          "decimals": 2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -151,7 +153,7 @@
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "influxdb-signal-catcher" },
-          "query": "convs = from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and r.type == \"conversions\")\n  |> sum()\n\nclks = from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and r.type == \"clicks\")\n  |> sum()\n\njoin(tables: {convs: convs, clks: clks}, on: [\"_measurement\"])\n  |> map(fn: (r) => ({_value: if r._value_clks > 0.0 then (r._value_convs / r._value_clks) * 100.0 else 0.0, _field: \"conv_rate\", _time: now()}))",
+          "query": "from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and (r.type == \"conversions\" or r.type == \"clicks\"))\n  |> group(columns: [\"type\"])\n  |> sum()\n  |> group()\n  |> pivot(rowKey: [\"_measurement\"], columnKey: [\"type\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({\n      _value: if exists r.clicks and r.clicks > 0\n        then (float(v: r.conversions) / float(v: r.clicks)) * 100.0\n        else 0.0,\n      _field: \"Conv Rate\",\n      _time: now()\n    }))",
           "refId": "A"
         }
       ]
@@ -188,49 +190,61 @@
     },
     {
       "id": 7,
-      "type": "barchart",
+      "type": "bargauge",
       "title": "Top 10 States by Impressions — last hour",
       "gridPos": { "x": 0, "y": 13, "w": 12, "h": 8 },
       "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "horizontal",
-        "xTickLabelRotation": 0,
-        "groupWidth": 0.7,
-        "barWidth": 0.97,
-        "legend": { "displayMode": "hidden", "placement": "bottom" }
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
       },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "fixed", "fixedColor": "dark-blue" } }
+        "defaults": {
+          "color": { "mode": "continuous-blues" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        }
       },
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "influxdb-signal-catcher" },
-          "query": "from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and r.type == \"impressions\")\n  |> group(columns: [\"state\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 10)\n  |> rename(columns: {state: \"_field\"})",
+          "query": "from(bucket: \"events\")\n  |> range(start: -1h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"count\" and r.type == \"impressions\")\n  |> group(columns: [\"state\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 10)\n  |> map(fn: (r) => ({r with _field: r.state, _time: now()}))",
           "refId": "A"
         }
       ]
     },
     {
       "id": 8,
-      "type": "barchart",
+      "type": "bargauge",
       "title": "Top 10 Advertisers by Revenue — last 24h",
       "gridPos": { "x": 12, "y": 13, "w": 12, "h": 8 },
       "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "horizontal",
-        "xTickLabelRotation": 0,
-        "groupWidth": 0.7,
-        "barWidth": 0.97,
-        "legend": { "displayMode": "hidden", "placement": "bottom" }
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "minVizWidth": 0,
+        "minVizHeight": 10
       },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
-          "color": { "mode": "fixed", "fixedColor": "dark-green" }
+          "color": { "mode": "continuous-greens" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
         }
       },
       "targets": [
         {
           "datasource": { "type": "influxdb", "uid": "influxdb-signal-catcher" },
-          "query": "from(bucket: \"events\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"revenue\" and r.type == \"conversions\")\n  |> group(columns: [\"advertiser_id\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 10)\n  |> rename(columns: {advertiser_id: \"_field\"})",
+          "query": "from(bucket: \"events\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"events\" and r._field == \"revenue\" and r.type == \"conversions\")\n  |> group(columns: [\"advertiser_id\"])\n  |> sum()\n  |> group()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 10)\n  |> map(fn: (r) => ({r with _field: r.advertiser_id, _time: now()}))",
           "refId": "A"
         }
       ]

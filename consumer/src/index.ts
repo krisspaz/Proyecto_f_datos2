@@ -192,6 +192,15 @@ async function start(): Promise<void> {
   }
 }
 
+// Flush buffered InfluxDB points before exiting so no data is lost on SIGTERM.
+async function shutdown() {
+  console.log('[consumer] shutting down, flushing InfluxDB buffer...');
+  try { await writeApi.close(); } catch (e) { console.error('[influx] flush error on exit:', e); }
+  process.exit(0);
+}
+process.on('SIGTERM', () => { shutdown().catch(() => process.exit(1)); });
+process.on('SIGINT',  () => { shutdown().catch(() => process.exit(1)); });
+
 start().catch((err) => {
   console.error(err);
   process.exit(1);
