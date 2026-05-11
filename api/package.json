@@ -9,7 +9,8 @@
   "dependencies": {
     "fastify": "^4.28.1",
     "amqplib": "^0.10.4",
-    "@influxdata/influxdb-client": "^1.35.0"
+    "@influxdata/influxdb-client": "^1.35.0",
+    "minio": "^8.0.1"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.5",

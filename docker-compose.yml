@@ -86,12 +86,21 @@ services:
       INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
       INFLUXDB_ORG: ${INFLUXDB_ORG}
       INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USER: ${MINIO_USER}
+      MINIO_PASS: ${MINIO_PASS}
+      MINIO_BUCKET: ${MINIO_BUCKET}
       PORT: 4000
     depends_on:
       rabbitmq:
         condition: service_healthy
       influxdb:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   consumer:
