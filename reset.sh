@@ -46,7 +46,7 @@ echo "  Frontend -> http://localhost:8080"
 echo "  Grafana  -> http://localhost:3001"
 echo "  RabbitMQ -> http://localhost:15672"
 echo ""
-LAN_IP=$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+LAN_IP=$(/sbin/ifconfig en0 2>/dev/null | awk '/inet /{print $2}' | head -1)
 if [ -n "$LAN_IP" ]; then
   echo "  LAN IP   -> $LAN_IP"
   echo "  API LAN  -> http://$LAN_IP:4000"

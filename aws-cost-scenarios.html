@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signal Catcher — AWS Cost Scenarios</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #060a12;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 48px 24px 80px;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    /* ───── Header ───── */
+    .header { margin-bottom: 52px; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #111827; border: 1px solid #1e293b;
+      border-radius: 20px; padding: 4px 14px;
+      font-size: 11px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: #f59e0b; margin-bottom: 20px;
+    }
+    .tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; }
+    h1 { font-size: 36px; font-weight: 900; color: #f8fafc; line-height: 1.15; margin-bottom: 10px; }
+    .intro { color: #64748b; font-size: 15px; max-width: 700px; line-height: 1.6; }
+
+    /* ───── Tabs ───── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 32px; border-bottom: 1px solid #1e293b; padding-bottom: 0; }
+    .tab {
+      padding: 12px 28px; border: none; background: transparent; cursor: pointer;
+      font-size: 14px; font-weight: 700; color: #475569; border-radius: 8px 8px 0 0;
+      border-bottom: 3px solid transparent; transition: all .15s;
+    }
+    .tab:hover { color: #94a3b8; }
+    .tab.active { color: #f8fafc; border-bottom-color: var(--accent); background: var(--bg-light); }
+    .tab.t-low   { --accent: #22c55e; --bg-light: #0d1f14; }
+    .tab.t-med   { --accent: #f59e0b; --bg-light: #1a1500; }
+    .tab.t-high  { --accent: #f87171; --bg-light: #1a0b0b; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ───── Scenario card ───── */
+    .sc-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      background: var(--sc-bg); border: 1px solid var(--sc-border);
+      border-radius: 16px; padding: 28px 32px; margin-bottom: 28px;
+      gap: 32px;
+    }
+    .sc-header-left { flex: 1; }
+    .sc-label {
+      display: inline-block; padding: 3px 12px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      background: var(--label-bg); color: var(--label-color); margin-bottom: 12px;
+    }
+    .sc-title { font-size: 24px; font-weight: 800; color: #f8fafc; margin-bottom: 8px; }
+    .sc-desc { font-size: 14px; color: #94a3b8; line-height: 1.6; max-width: 560px; }
+    .sc-stats { display: flex; flex-direction: column; gap: 12px; min-width: 200px; }
+    .sc-stat-box {
+      background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.06);
+      border-radius: 10px; padding: 14px 20px; text-align: right;
+    }
+    .sc-stat-label { font-size: 11px; color: #475569; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+    .sc-stat-value { font-size: 26px; font-weight: 800; color: var(--label-color); }
+    .sc-stat-unit { font-size: 14px; color: #64748b; font-weight: 500; }
+
+    .t-low  { --sc-bg: #06120d; --sc-border: #14532d; --label-bg: #14532d; --label-color: #4ade80; }
+    .t-med  { --sc-bg: #120e02; --sc-border: #78350f; --label-bg: #78350f; --label-color: #fbbf24; }
+    .t-high { --sc-bg: #130606; --sc-border: #7f1d1d; --label-bg: #7f1d1d; --label-color: #f87171; }
+
+    /* ───── Architecture highlights ───── */
+    .arch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+    .arch-card {
+      background: #0f1623; border: 1px solid #1e293b; border-radius: 12px; padding: 16px 18px;
+    }
+    .arch-card-icon { font-size: 20px; margin-bottom: 8px; }
+    .arch-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #64748b; margin-bottom: 6px; }
+    .arch-card-val { font-size: 14px; font-weight: 700; color: #e2e8f0; }
+    .arch-card-note { font-size: 12px; color: #475569; margin-top: 4px; line-height: 1.4; }
+
+    /* ───── Cost table ───── */
+    .cost-section-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: #475569; margin-bottom: 10px; margin-top: 24px;
+    }
+    table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+    .table-wrap { border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+    thead { background: #080d16; }
+    th {
+      padding: 11px 16px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #334155; text-align: left;
+    }
+    th:last-child { text-align: right; }
+    td { padding: 13px 16px; font-size: 13px; color: #94a3b8; border-top: 1px solid #0f1623; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    td:first-child { color: #cbd5e1; font-weight: 600; }
+    td:last-child { text-align: right; font-weight: 700; color: #e2e8f0; font-size: 14px; }
+
+    .cat-row td {
+      background: #0c1120; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #334155; padding: 8px 16px;
+    }
+    .cat-row td:last-child { color: #334155; text-align: right; }
+
+    .total-row td {
+      background: #04080f; font-size: 16px; font-weight: 800;
+      color: #f8fafc; padding: 20px 16px; border-top: 2px solid #1e293b;
+    }
+    .total-row td:last-child { color: var(--label-color); font-size: 22px; }
+
+    .sku { font-family: 'SF Mono','Fira Code',monospace; font-size: 12px; color: #7c3aed; background: #0a0816; border: 1px solid #2e1065; border-radius: 4px; padding: 2px 7px; }
+    .free { color: #22c55e; }
+
+    /* ───── Savings box ───── */
+    .savings-box {
+      background: #050d1a; border: 1px solid #1e3a5f; border-radius: 12px;
+      padding: 18px 22px; margin-top: 16px;
+      display: flex; align-items: flex-start; gap: 14px;
+    }
+    .savings-icon { font-size: 22px; margin-top: 2px; }
+    .savings-title { font-size: 13px; font-weight: 700; color: #93c5fd; margin-bottom: 4px; }
+    .savings-text { font-size: 13px; color: #475569; line-height: 1.6; }
+    .savings-text strong { color: #60a5fa; }
+
+    /* ───── Warning box ───── */
+    .warn-box {
+      background: #160a02; border: 1px solid #78350f; border-radius: 12px;
+      padding: 16px 20px; margin-top: 20px;
+      display: flex; align-items: flex-start; gap: 12px; font-size: 13px;
+    }
+    .warn-icon { font-size: 18px; }
+    .warn-text { color: #92400e; line-height: 1.6; }
+    .warn-text strong { color: #fbbf24; }
+
+    /* ───── Comparison table ───── */
+    .comparison { margin-top: 60px; }
+    .comparison h2 { font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #475569; margin-bottom: 16px; }
+    .compare-row td { border-top: 1px solid #0f1623; }
+    .compare-row td:nth-child(2) { color: #4ade80; }
+    .compare-row td:nth-child(3) { color: #fbbf24; }
+    .compare-row td:nth-child(4) { color: #f87171; }
+
+    .bar-cell { min-width: 180px; }
+    .bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .bar { height: 8px; border-radius: 4px; }
+    .bar-low  { background: #22c55e; }
+    .bar-med  { background: #f59e0b; }
+    .bar-high { background: #ef4444; }
+
+    footer {
+      text-align: center; color: #1e293b; font-size: 12px;
+      margin-top: 64px; padding-top: 24px; border-top: 1px solid #0f1623;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="tag">// SIGNAL CATCHER · DATOS II · UFM</div>
+    <h1>AWS Cost Scenarios</h1>
+    <p class="intro">
+      Tres escenarios de dimensionamiento para el pipeline de ad tracking.
+      Cada uno tiene una arquitectura diferente, con justificación de por qué se eligió cada SKU
+      y qué cambiaría si el tráfico crece.
+      Región: <strong style="color:#e2e8f0">us-east-1</strong> · Precios on-demand · Mayo 2026.
+    </p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab t-low active"  onclick="show('low',this)">Baja demanda — 100 rps</button>
+    <button class="tab t-med"         onclick="show('med',this)">Media demanda — 500 rps</button>
+    <button class="tab t-high"        onclick="show('high',this)">Alta demanda — 1,000 rps</button>
+  </div>
+
+  <!-- ════════════════ PANEL LOW ════════════════ -->
+  <div class="panel t-low active" id="panel-low">
+
+    <div class="sc-header">
+      <div class="sc-header-left">
+        <div class="sc-label">Baja demanda</div>
+        <div class="sc-title">Desarrollo, staging o producto early-stage</div>
+        <div class="sc-desc">
+          Sistema levantado en horario de negocio o con tráfico real pero pequeño.
+          Típico de un equipo de 2–5 personas validando el producto.
+          El objetivo es gastar lo menos posible mientras se demuestra que la arquitectura funciona.
+          Se usa RabbitMQ auto-gestionado en EC2 en lugar de Amazon MQ managed
+          para evitar el costo fijo de $210/mes del broker administrado.
+        </div>
+      </div>
+      <div class="sc-stats">
+        <div class="sc-stat-box">
+          <div class="sc-stat-label">Carga sostenida</div>
+          <div class="sc-stat-value">100 <span class="sc-stat-unit">rps</span></div>
+        </div>
+        <div class="sc-stat-box">
+          <div class="sc-stat-label">Eventos / mes</div>
+          <div class="sc-stat-value">259M</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Architecture cards -->
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-card-icon">⚡</div>
+        <div class="arch-card-title">API</div>
+        <div class="arch-card-val">1 task ECS Fargate</div>
+        <div class="arch-card-note">0.5 vCPU / 1 GB RAM. Suficiente para &lt;200 rps sin auto-scaling.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📨</div>
+        <div class="arch-card-title">Queue</div>
+        <div class="arch-card-val">RabbitMQ en EC2 t3.medium</div>
+        <div class="arch-card-note">Self-managed. Se ahorra $180/mes vs Amazon MQ. Tradeoff: gestión manual de upgrades y backups.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📊</div>
+        <div class="arch-card-title">TSDB</div>
+        <div class="arch-card-val">InfluxDB en EC2 t3.large</div>
+        <div class="arch-card-note">2 vCPU / 8 GB RAM. Cómodo para &lt;500 rps de ingesta con batch de 500 puntos.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">🪣</div>
+        <div class="arch-card-title">Object Storage</div>
+        <div class="arch-card-val">S3 Standard ~130 GB</div>
+        <div class="arch-card-note">30 días de retención. Archivos horarios (no por evento) para evitar costos de PUT.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">🔁</div>
+        <div class="arch-card-title">Consumer</div>
+        <div class="arch-card-val">1 task ECS Fargate</div>
+        <div class="arch-card-note">Sin replicación. Si muere, los mensajes persisten en RabbitMQ hasta que recupere.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📈</div>
+        <div class="arch-card-title">Dashboard</div>
+        <div class="arch-card-val">Grafana en EC2 (collocated)</div>
+        <div class="arch-card-note">En la misma instancia que InfluxDB para ahorrar costo. No recomendado en producción real.</div>
+      </div>
+    </div>
+
+    <!-- Cost table -->
+    <div class="cost-section-title">Desglose de costos — SKU level</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Servicio</th><th>SKU / Configuración</th><th>Cantidad</th><th>Precio unitario</th><th>$/mes</th>
+        </tr></thead>
+        <tbody>
+          <tr class="cat-row"><td colspan="4">Compute</td><td>$36</td></tr>
+          <tr>
+            <td>ECS Fargate — API</td>
+            <td><span class="sku">1 task × 0.5 vCPU × 1 GB</span></td>
+            <td>730 h</td><td>$0.04048/vCPU-h + $0.004445/GB-h</td><td>$18</td>
+          </tr>
+          <tr>
+            <td>ECS Fargate — Consumer</td>
+            <td><span class="sku">1 task × 0.5 vCPU × 1 GB</span></td>
+            <td>730 h</td><td>$0.04048/vCPU-h + $0.004445/GB-h</td><td>$18</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Message Queue (self-managed)</td><td>$32</td></tr>
+          <tr>
+            <td>EC2 — RabbitMQ host</td>
+            <td><span class="sku">t3.medium (2 vCPU, 4 GB)</span></td>
+            <td>730 h</td><td>$0.0416/h</td><td>$30</td>
+          </tr>
+          <tr>
+            <td>EBS gp3 — RabbitMQ data</td>
+            <td><span class="sku">20 GB gp3</span></td>
+            <td>1 mes</td><td>$0.08/GB-mes</td><td>$2</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Time Series DB</td><td>$69</td></tr>
+          <tr>
+            <td>EC2 — InfluxDB + Grafana</td>
+            <td><span class="sku">t3.large (2 vCPU, 8 GB)</span></td>
+            <td>730 h</td><td>$0.0832/h</td><td>$61</td>
+          </tr>
+          <tr>
+            <td>EBS gp3 — InfluxDB data</td>
+            <td><span class="sku">100 GB gp3</span></td>
+            <td>1 mes</td><td>$0.08/GB-mes</td><td>$8</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Object Storage</td><td>$3</td></tr>
+          <tr>
+            <td>S3 Standard — almacenamiento</td>
+            <td><span class="sku">~130 GB (30 días, 100 rps × 500 B/evento)</span></td>
+            <td>1 mes</td><td>$0.023/GB-mes</td><td>$3</td>
+          </tr>
+          <tr>
+            <td>S3 PUT requests</td>
+            <td><span class="sku">Archivos horarios (~2,160 PUTs/mes)</span></td>
+            <td>—</td><td>$0.005/1,000 PUTs</td><td class="free">~$0</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Networking</td><td>$45</td></tr>
+          <tr>
+            <td>Application Load Balancer</td>
+            <td><span class="sku">1 ALB + ~1 LCU</span></td>
+            <td>730 h</td><td>$0.008/h + $0.008/LCU-h</td><td>$12</td>
+          </tr>
+          <tr>
+            <td>VPC NAT Gateway</td>
+            <td><span class="sku">1 NAT + &lt;1 GB datos/mes</span></td>
+            <td>730 h</td><td>$0.045/h + $0.045/GB</td><td>$33</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Observabilidad</td><td>$3</td></tr>
+          <tr>
+            <td>CloudWatch Logs</td>
+            <td><span class="sku">~5 GB logs/mes</span></td>
+            <td>1 mes</td><td>$0.50/GB</td><td>$3</td>
+          </tr>
+
+          <tr class="total-row"><td colspan="4">TOTAL MENSUAL (on-demand)</td><td>≈ $188</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="savings-box">
+      <div class="savings-icon">💡</div>
+      <div>
+        <div class="savings-title">Cómo reducirlo aún más</div>
+        <div class="savings-text">
+          El NAT Gateway cuesta <strong>$33/mes</strong> solo de tarifa fija, independiente del tráfico.
+          Para este escenario conviene usar <strong>VPC Endpoints</strong> para S3 y ECR (gratuitos o $7/mes),
+          y sacar los servicios a una subred pública si el modelo de seguridad lo permite.
+          Ahorro potencial: <strong>~$26/mes</strong>.
+          Con Savings Plan de cómputo al 1 año: reduce compute en ~22%, ahorro adicional de ~$8/mes.
+        </div>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-icon">⚠️</div>
+      <div class="warn-text">
+        <strong>Riesgo del tier bajo:</strong> RabbitMQ self-managed en t3.medium no tiene SLA ni failover automático.
+        Si la instancia muere, los mensajes en tránsito se pueden perder (aunque los durable queues sobreviven reinicios).
+        Para producción real, migrar a Amazon MQ o usar un volumen EBS separado con snapshots automáticos.
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ PANEL MED ════════════════ -->
+  <div class="panel t-med" id="panel-med">
+
+    <div class="sc-header">
+      <div class="sc-header-left">
+        <div class="sc-label">Demanda media</div>
+        <div class="sc-title">Producto en producción con tráfico real moderado</div>
+        <div class="sc-desc">
+          Sistema en producción para una empresa mediana: agencia de medios, plataforma regional,
+          o producto SaaS en crecimiento. Se introducen redundancia básica (2 réplicas del API y consumer)
+          y Amazon MQ managed para eliminar el riesgo operativo de gestionar el broker.
+          InfluxDB sube a m5.large para manejar el batch de escrituras cómodamente.
+        </div>
+      </div>
+      <div class="sc-stats">
+        <div class="sc-stat-box">
+          <div class="sc-stat-label">Carga sostenida</div>
+          <div class="sc-stat-value">500 <span class="sc-stat-unit">rps</span></div>
+        </div>
+        <div class="sc-stat-box">
+          <div class="sc-stat-label">Eventos / mes</div>
+          <div class="sc-stat-value">1.3B</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-card-icon">⚡</div>
+        <div class="arch-card-title">API</div>
+        <div class="arch-card-val">2 tasks ECS Fargate</div>
+        <div class="arch-card-note">1 vCPU / 2 GB cada task. ALB distribuye carga. Auto-scaling configurado en 60–80% CPU.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📨</div>
+        <div class="arch-card-title">Queue</div>
+        <div class="arch-card-val">Amazon MQ mq.m5.large</div>
+        <div class="arch-card-note">Managed, single-instance. AWS gestiona upgrades, patches y monitoreo. SLA 99.9%.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📊</div>
+        <div class="arch-card-title">TSDB</div>
+        <div class="arch-card-val">InfluxDB en EC2 m5.large</div>
+        <div class="arch-card-note">2 vCPU / 8 GB RAM. Soporta ~2,000 writes/s en batch. EBS snapshots diarios.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">🪣</div>
+        <div class="arch-card-title">Object Storage</div>
+        <div class="arch-card-val">S3 Standard ~648 GB</div>
+        <div class="arch-card-note">Archivos por hora, no por evento. Lifecycle policy: mueve a S3 Glacier después de 30 días.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">🔁</div>
+        <div class="arch-card-title">Consumer</div>
+        <div class="arch-card-val">2 tasks ECS Fargate</div>
+        <div class="arch-card-note">Dos réplicas para throughput y fault tolerance. RabbitMQ distribuye mensajes sin double-counting gracias al prefetch.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📈</div>
+        <div class="arch-card-title">Dashboard</div>
+        <div class="arch-card-val">Grafana en EC2 separado</div>
+        <div class="arch-card-note">t3.small dedicado. Separado de InfluxDB para no competir por memoria durante cargas pico.</div>
+      </div>
+    </div>
+
+    <div class="cost-section-title">Desglose de costos — SKU level</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Servicio</th><th>SKU / Configuración</th><th>Cantidad</th><th>Precio unitario</th><th>$/mes</th>
+        </tr></thead>
+        <tbody>
+          <tr class="cat-row"><td colspan="4">Compute</td><td>$108</td></tr>
+          <tr>
+            <td>ECS Fargate — API</td>
+            <td><span class="sku">2 tasks × 1 vCPU × 2 GB</span></td>
+            <td>730 h</td><td>$0.04048/vCPU-h + $0.004445/GB-h</td><td>$72</td>
+          </tr>
+          <tr>
+            <td>ECS Fargate — Consumer</td>
+            <td><span class="sku">2 tasks × 0.5 vCPU × 1 GB</span></td>
+            <td>730 h</td><td>$0.04048/vCPU-h + $0.004445/GB-h</td><td>$36</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Message Queue (managed)</td><td>$210</td></tr>
+          <tr>
+            <td>Amazon MQ — RabbitMQ</td>
+            <td><span class="sku">mq.m5.large single-instance</span></td>
+            <td>730 h</td><td>$0.288/h</td><td>$210</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Time Series DB</td><td>$94</td></tr>
+          <tr>
+            <td>EC2 — InfluxDB</td>
+            <td><span class="sku">m5.large (2 vCPU, 8 GB)</span></td>
+            <td>730 h</td><td>$0.096/h</td><td>$70</td>
+          </tr>
+          <tr>
+            <td>EBS gp3 — InfluxDB data</td>
+            <td><span class="sku">300 GB gp3</span></td>
+            <td>1 mes</td><td>$0.08/GB-mes</td><td>$24</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Object Storage</td><td>$15</td></tr>
+          <tr>
+            <td>S3 Standard — almacenamiento</td>
+            <td><span class="sku">~648 GB (30 días, 500 rps × 500 B/evento)</span></td>
+            <td>1 mes</td><td>$0.023/GB-mes</td><td>$15</td>
+          </tr>
+          <tr>
+            <td>S3 PUT requests</td>
+            <td><span class="sku">Archivos horarios (~2,160 PUTs/mes)</span></td>
+            <td>—</td><td>$0.005/1,000 PUTs</td><td class="free">~$0</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Networking</td><td>$68</td></tr>
+          <tr>
+            <td>Application Load Balancer</td>
+            <td><span class="sku">1 ALB + ~5 LCU</span></td>
+            <td>730 h</td><td>$0.008/h + $0.008/LCU-h</td><td>$35</td>
+          </tr>
+          <tr>
+            <td>VPC NAT Gateway</td>
+            <td><span class="sku">1 NAT + ~5 GB datos/mes</span></td>
+            <td>730 h</td><td>$0.045/h + $0.045/GB</td><td>$33</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Observabilidad</td><td>$13</td></tr>
+          <tr>
+            <td>CloudWatch Logs</td>
+            <td><span class="sku">~25 GB logs/mes</span></td>
+            <td>1 mes</td><td>$0.50/GB</td><td>$13</td>
+          </tr>
+
+          <tr class="total-row"><td colspan="4">TOTAL MENSUAL (on-demand)</td><td>≈ $508</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="savings-box">
+      <div class="savings-icon">💡</div>
+      <div>
+        <div class="savings-title">Cómo reducirlo</div>
+        <div class="savings-text">
+          Amazon MQ domina el costo con <strong>$210/mes</strong> aunque el broker esté desocupado el 80% del tiempo.
+          Si el tráfico es predecible y el equipo tiene capacidad operativa, volver a <strong>RabbitMQ self-managed
+          en EC2 m5.large</strong> bajaría ese ítem a ~$70/mes.
+          Con <strong>Compute Savings Plan 1 año</strong> en ECS Fargate: ahorro de ~22% en compute (~$24/mes).
+          Total potencial con ambas medidas: <strong>~$370/mes</strong>.
+        </div>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-icon">⚠️</div>
+      <div class="warn-text">
+        <strong>Punto débil:</strong> Amazon MQ mq.m5.large es single-instance — si muere, el broker no está disponible
+        hasta que AWS lo recupera (típicamente &lt;5 min, pero sin SLA de zero-downtime).
+        Para HA real: usar <strong>mq.m5.large cluster</strong> ($0.576/h = $420/mes) con replicación entre AZs.
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ PANEL HIGH ════════════════ -->
+  <div class="panel t-high" id="panel-high">
+
+    <div class="sc-header">
+      <div class="sc-header-left">
+        <div class="sc-label">Alta demanda</div>
+        <div class="sc-title">Producción enterprise — load test Tier 3</div>
+        <div class="sc-desc">
+          Arquitectura de producción real diseñada para pasar los tiers 1, 2 y 3 del stress test.
+          Dos réplicas de API y consumer con capacidad de escalar. InfluxDB en m5.xlarge
+          para manejar el batch de escrituras a 1,000 rps sin degradación.
+          Amazon MQ managed para eliminar riesgo operativo en el broker.
+        </div>
+      </div>
+      <div class="sc-stats">
+        <div class="sc-stat-box">
+          <div class="sc-stat-label">Carga sostenida</div>
+          <div class="sc-stat-value">1,000 <span class="sc-stat-unit">rps</span></div>
+        </div>
+        <div class="sc-stat-box">
+          <div class="sc-stat-label">Eventos / mes</div>
+          <div class="sc-stat-value">2.6B</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-grid">
+      <div class="arch-card">
+        <div class="arch-card-icon">⚡</div>
+        <div class="arch-card-title">API</div>
+        <div class="arch-card-val">2 tasks ECS Fargate</div>
+        <div class="arch-card-note">2 vCPU / 4 GB cada task. Fastify puede manejar 2,000–5,000 rps por vCPU; 2 tasks son holgados para 1,000 rps.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📨</div>
+        <div class="arch-card-title">Queue</div>
+        <div class="arch-card-val">Amazon MQ mq.m5.large</div>
+        <div class="arch-card-note">1,000 rps de publish es trivial para un broker m5.large. El cuello de botella suele ser el consumer, no el broker.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📊</div>
+        <div class="arch-card-title">TSDB</div>
+        <div class="arch-card-val">InfluxDB en EC2 m5.xlarge</div>
+        <div class="arch-card-note">4 vCPU / 16 GB RAM. Batch de 500 puntos → 2 flushes/s a InfluxDB. Cómodo para el write path sin degradación de queries.</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">🪣</div>
+        <div class="arch-card-title">Object Storage</div>
+        <div class="arch-card-val">S3 Standard ~1.3 TB</div>
+        <div class="arch-card-note">Archivos horarios. Lifecycle: Glacier Instant Retrieval a los 30 días ($0.004/GB-mes vs $0.023).</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">🔁</div>
+        <div class="arch-card-title">Consumer</div>
+        <div class="arch-card-val">2 tasks ECS Fargate</div>
+        <div class="arch-card-note">prefetch(100) garantiza distribución sin double-counting. Puede escalar a 4 tasks para Tier 4 (2,000 rps).</div>
+      </div>
+      <div class="arch-card">
+        <div class="arch-card-icon">📈</div>
+        <div class="arch-card-title">Dashboard</div>
+        <div class="arch-card-val">Grafana provisionado</div>
+        <div class="arch-card-note">Auto-provisionado vía docker-compose. Refresh 10s satisface el requisito de ≤60s del enunciado.</div>
+      </div>
+    </div>
+
+    <div class="cost-section-title">Desglose de costos — SKU level</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Servicio</th><th>SKU / Configuración</th><th>Cantidad</th><th>Precio unitario</th><th>$/mes</th>
+        </tr></thead>
+        <tbody>
+          <tr class="cat-row"><td colspan="4">Compute</td><td>$216</td></tr>
+          <tr>
+            <td>ECS Fargate — API</td>
+            <td><span class="sku">2 tasks × 2 vCPU × 4 GB</span></td>
+            <td>730 h</td><td>$0.04048/vCPU-h + $0.004445/GB-h</td><td>$144</td>
+          </tr>
+          <tr>
+            <td>ECS Fargate — Consumer</td>
+            <td><span class="sku">2 tasks × 1 vCPU × 2 GB</span></td>
+            <td>730 h</td><td>$0.04048/vCPU-h + $0.004445/GB-h</td><td>$72</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Message Queue (managed)</td><td>$210</td></tr>
+          <tr>
+            <td>Amazon MQ — RabbitMQ</td>
+            <td><span class="sku">mq.m5.large single-instance</span></td>
+            <td>730 h</td><td>$0.288/h</td><td>$210</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Time Series DB</td><td>$180</td></tr>
+          <tr>
+            <td>EC2 — InfluxDB</td>
+            <td><span class="sku">m5.xlarge (4 vCPU, 16 GB)</span></td>
+            <td>730 h</td><td>$0.192/h</td><td>$140</td>
+          </tr>
+          <tr>
+            <td>EBS gp3 — InfluxDB data</td>
+            <td><span class="sku">500 GB gp3</span></td>
+            <td>1 mes</td><td>$0.08/GB-mes</td><td>$40</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Object Storage</td><td>$30</td></tr>
+          <tr>
+            <td>S3 Standard — almacenamiento</td>
+            <td><span class="sku">~1,296 GB (30 días, 1,000 rps × 500 B/evento)</span></td>
+            <td>1 mes</td><td>$0.023/GB-mes</td><td>$30</td>
+          </tr>
+          <tr>
+            <td>S3 PUT requests</td>
+            <td><span class="sku">Archivos horarios (~2,160 PUTs/mes)</span></td>
+            <td>—</td><td>$0.005/1,000 PUTs</td><td class="free">~$0</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Networking</td><td>$107</td></tr>
+          <tr>
+            <td>Application Load Balancer</td>
+            <td><span class="sku">1 ALB + ~10 LCU</span></td>
+            <td>730 h</td><td>$0.008/h + $0.008/LCU-h</td><td>$64</td>
+          </tr>
+          <tr>
+            <td>VPC NAT Gateway</td>
+            <td><span class="sku">1 NAT + ~10 GB datos/mes</span></td>
+            <td>730 h</td><td>$0.045/h + $0.045/GB</td><td>$43</td>
+          </tr>
+
+          <tr class="cat-row"><td colspan="4">Observabilidad</td><td>$25</td></tr>
+          <tr>
+            <td>CloudWatch Logs</td>
+            <td><span class="sku">~50 GB logs/mes</span></td>
+            <td>1 mes</td><td>$0.50/GB</td><td>$25</td>
+          </tr>
+
+          <tr class="total-row"><td colspan="4">TOTAL MENSUAL (on-demand)</td><td>≈ $768</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="savings-box">
+      <div class="savings-icon">💡</div>
+      <div>
+        <div class="savings-title">Cómo reducirlo</div>
+        <div class="savings-text">
+          Con <strong>Compute Savings Plan 1 año</strong> en ECS Fargate: el compute baja de $216 a ~$168 (ahorro 22%).
+          Mover InfluxDB a <strong>Reserved Instance m5.xlarge 1 año</strong>: $0.12/h → $87.6/mes vs $140 (ahorro $52/mes).
+          <strong>S3 Lifecycle a Glacier</strong> a los 30 días: el costo de storage cae de $30 a ~$5/mes después del primer mes.
+          Total potencial con estas 3 medidas: <strong>~$620/mes</strong>.
+        </div>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-icon">⚠️</div>
+      <div class="warn-text">
+        <strong>Para Tier 4 (2,000 rps burst):</strong> escalar consumer a 4 tasks (+$72/mes) y API a 4 tasks (+$144/mes).
+        ECS Auto Scaling puede activar las réplicas adicionales en &lt;60s cuando CPU supera 70%.
+        El broker mq.m5.large aguanta 2,000 rps sin problema — el cuello de botella sería InfluxDB;
+        considerar <strong>m5.2xlarge</strong> (+$140/mes) o sharding de escrituras.
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ Comparison ════════════════ -->
+  <div class="comparison">
+    <h2>Comparación de escenarios</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Ítem</th>
+          <th style="color:#4ade80">Baja — 100 rps</th>
+          <th style="color:#fbbf24">Media — 500 rps</th>
+          <th style="color:#f87171">Alta — 1,000 rps</th>
+        </tr></thead>
+        <tbody>
+          <tr class="compare-row">
+            <td>Costo mensual (on-demand)</td>
+            <td>$188</td><td>$508</td><td>$768</td>
+          </tr>
+          <tr class="compare-row">
+            <td>Costo mensual (con Reserved 1y)</td>
+            <td>~$148</td><td>~$390</td><td>~$595</td>
+          </tr>
+          <tr class="compare-row">
+            <td>Queue</td>
+            <td>EC2 self-managed</td><td>Amazon MQ managed</td><td>Amazon MQ managed</td>
+          </tr>
+          <tr class="compare-row">
+            <td>InfluxDB (EC2 SKU)</td>
+            <td>t3.large</td><td>m5.large</td><td>m5.xlarge</td>
+          </tr>
+          <tr class="compare-row">
+            <td>API tasks</td>
+            <td>1 × 0.5 vCPU</td><td>2 × 1 vCPU</td><td>2 × 2 vCPU</td>
+          </tr>
+          <tr class="compare-row">
+            <td>Consumer tasks</td>
+            <td>1 × 0.5 vCPU</td><td>2 × 0.5 vCPU</td><td>2 × 1 vCPU</td>
+          </tr>
+          <tr class="compare-row">
+            <td>S3 almacenamiento/mes</td>
+            <td>~130 GB</td><td>~648 GB</td><td>~1,300 GB</td>
+          </tr>
+          <tr class="compare-row">
+            <td>Eventos procesados/mes</td>
+            <td>259M</td><td>1,296M</td><td>2,592M</td>
+          </tr>
+          <tr class="compare-row">
+            <td>Costo por millón de eventos</td>
+            <td style="color:#4ade80">$0.73</td><td style="color:#fbbf24">$0.39</td><td style="color:#f87171">$0.30</td>
+          </tr>
+          <tr class="compare-row">
+            <td>Barra de costo relativo</td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar bar-low" style="width:24%"></div>
+                <span style="font-size:12px;color:#4ade80">24%</span>
+              </div>
+            </td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar bar-med" style="width:66%"></div>
+                <span style="font-size:12px;color:#fbbf24">66%</span>
+              </div>
+            </td>
+            <td>
+              <div class="bar-wrap">
+                <div class="bar bar-high" style="width:100%"></div>
+                <span style="font-size:12px;color:#f87171">100%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>// SIGNAL CATCHER · Datos II · UFM · 2026 // Precios AWS us-east-1 on-demand, mayo 2026 //</footer>
+
+</div>
+
+<script>
+  function show(tier, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('panel-' + tier).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>
