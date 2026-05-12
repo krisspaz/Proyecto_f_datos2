@@ -12,7 +12,9 @@ export default async function conversionRoute(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      await publish('conversions', request.body as object);
+      if (!publish('conversions', request.body as object)) {
+        return reply.status(503).send({ accepted: false });
+      }
       return reply.status(202).send({ accepted: true });
     },
   );

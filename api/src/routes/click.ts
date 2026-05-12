@@ -12,7 +12,9 @@ export default async function clickRoute(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      await publish('clicks', request.body as object);
+      if (!publish('clicks', request.body as object)) {
+        return reply.status(503).send({ accepted: false });
+      }
       return reply.status(202).send({ accepted: true });
     },
   );

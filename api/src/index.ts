@@ -1,11 +1,12 @@
 import Fastify from 'fastify';
-import { connectQueue } from './queue';
+import { connectQueue, drainAndExit } from './queue';
 import impressionRoute from './routes/impression';
 import clickRoute from './routes/click';
 import conversionRoute from './routes/conversion';
 import metricsRoute from './routes/metrics';
 import queuesRoute from './routes/queues';
 import storageRoute from './routes/storage';
+import resetRoute from './routes/reset';
 
 const app = Fastify({
   logger: { level: 'warn' },
@@ -18,6 +19,7 @@ app.register(conversionRoute);
 app.register(metricsRoute);
 app.register(queuesRoute);
 app.register(storageRoute);
+app.register(resetRoute);
 
 app.get('/health', async () => ({ status: 'ok' }));
 
@@ -31,3 +33,7 @@ start().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+// Drain in-memory buffer before Docker kills the container
+process.on('SIGTERM', () => drainAndExit(0).catch(() => process.exit(1)));
+process.on('SIGINT',  () => drainAndExit(0).catch(() => process.exit(1)));

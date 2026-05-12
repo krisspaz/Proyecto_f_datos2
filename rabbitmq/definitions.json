@@ -1,0 +1,14 @@
+{
+  "rabbit_version": "3.13.0",
+  "vhosts": [{ "name": "/" }],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "lazy-all",
+      "pattern": ".*",
+      "apply-to": "queues",
+      "definition": { "queue-mode": "lazy" },
+      "priority": 0
+    }
+  ]
+}

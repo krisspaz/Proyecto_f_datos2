@@ -82,6 +82,7 @@ export default async function metricsRoute(app: FastifyInstance) {
       from(bucket: "${bucket}")
         |> range(start: -${range})
         |> filter(fn: (r) => r._measurement == "events" and r._field == "count")
+        |> group(columns: ["type"])
         |> aggregateWindow(every: ${win}, fn: sum, createEmpty: true)
         |> fill(value: 0)
     `;

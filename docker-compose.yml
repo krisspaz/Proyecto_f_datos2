@@ -9,6 +9,11 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/signal-catcher.conf:ro
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -55,6 +60,18 @@ services:
       retries: 5
       start_period: 10s
 
+  rabbitmq-init:
+    image: curlimages/curl:latest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+    entrypoint: >
+      sh -c "curl -sf -u $$RABBITMQ_USER:$$RABBITMQ_PASS -X PUT http://rabbitmq:15672/api/policies/%2F/lazy-all -H 'Content-Type: application/json' -d '{\"pattern\":\".*\",\"definition\":{\"queue-mode\":\"lazy\"},\"apply-to\":\"queues\",\"priority\":0}' && echo 'lazy-all policy applied'"
+    restart: "no"
+
   minio-init:
     image: minio/mc:latest
     depends_on:
@@ -72,11 +89,10 @@ services:
       "
     restart: "no"
 
+  # API runs as 2 replicas — no direct port binding, api-lb handles external access
   api:
     build:
       context: ./api
-    ports:
-      - "4000:4000"
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       RABBITMQ_HOST: rabbitmq
@@ -102,7 +118,28 @@ services:
       minio-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    deploy:
+      replicas: 2
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
+  # nginx load balancer — exposes port 4000 externally, round-robins to api replicas
+  api-lb:
+    image: nginx:1.27-alpine
+    ports:
+      - "4000:80"
+    volumes:
+      - ./api-lb.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Consumer runs as 3 replicas for parallel queue draining
   consumer:
     build:
       context: ./consumer
@@ -127,6 +164,8 @@ services:
       minio-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    deploy:
+      replicas: 3
 
   frontend:
     build:

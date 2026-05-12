@@ -77,3 +77,9 @@ export const fireEvent = (queue: string, payload: object) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+
+export const resetData = () =>
+  fetch('/api/reset', { method: 'POST' }).then((r) => {
+    if (!r.ok) throw new Error(`${r.status}`);
+    return r.json() as Promise<{ reset: boolean }>;
+  });
