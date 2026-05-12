@@ -78,10 +78,11 @@ export default async function metricsRoute(app: FastifyInstance) {
     const range = VALID_RANGES.has(rawRange)   ? rawRange  : '2h';
 
     const bucket = process.env.INFLUXDB_BUCKET!;
+    // Query from pre-aggregated measurement (1 point/min/type) — fast even at high RPS
     const query = `
       from(bucket: "${bucket}")
         |> range(start: -${range})
-        |> filter(fn: (r) => r._measurement == "events" and r._field == "count")
+        |> filter(fn: (r) => r._measurement == "events_agg" and r._field == "count")
         |> group(columns: ["type"])
         |> aggregateWindow(every: ${win}, fn: sum, createEmpty: true)
         |> fill(value: 0)

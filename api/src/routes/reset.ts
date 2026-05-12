@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import http from 'http';
+import amqp from 'amqplib';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 
 const s3 = new S3Client({
@@ -65,6 +66,20 @@ async function purgeMinIO(): Promise<void> {
   } while (token);
 }
 
+async function notifyConsumersReset(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let conn: any;
+  try {
+    conn = await amqp.connect(process.env.RABBITMQ_URL!);
+    const ch = await conn.createChannel();
+    await ch.assertExchange('system', 'fanout', { durable: false });
+    ch.publish('system', '', Buffer.from('reset'));
+    await ch.close();
+  } finally {
+    if (conn) await conn.close().catch(() => {});
+  }
+}
+
 export default async function resetRoute(app: FastifyInstance) {
   app.post('/api/reset', async (_req, reply) => {
     await Promise.all([
@@ -73,6 +88,7 @@ export default async function resetRoute(app: FastifyInstance) {
       purgeRabbit('clicks'),
       purgeRabbit('impressions'),
       purgeRabbit('conversions'),
+      notifyConsumersReset(),
     ]);
     reply.send({ reset: true });
   });

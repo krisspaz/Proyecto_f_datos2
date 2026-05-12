@@ -17,6 +17,31 @@ const PREFETCH_PER_Q   = 500;   // unacked msgs per queue channel
 const impressionCache = new Map<string, string>();
 const CACHE_MAX = 100_000;
 
+// ── Per-minute aggregator ─────────────────────────────────────────────────────
+// Accumulates counts in memory and writes ONE point per type per minute
+// to `events_agg` measurement — keeps InfluxDB lean and dashboard queries fast
+const aggCounts: Record<QueueName, number> = { impressions: 0, clicks: 0, conversions: 0 };
+let aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
+
+function flushAggCounts(): void {
+  const windowTs = new Date(aggWindowStart);
+  for (const q of QUEUES) {
+    if (aggCounts[q] > 0) {
+      writeApi.writePoint(
+        new Point('events_agg')
+          .tag('type', q)
+          .intField('count', aggCounts[q])
+          .timestamp(windowTs)
+      );
+      aggCounts[q] = 0;
+    }
+  }
+  aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
+}
+
+// Flush every 60s so each minute gets exactly one aggregated point per type
+setInterval(flushAggCounts, 60_000);
+
 // ── InfluxDB ──────────────────────────────────────────────────────────────────
 const influx = new InfluxDB({
   url:   process.env.INFLUXDB_URL!,
@@ -185,8 +210,14 @@ async function processMessage(ch: Channel, queue: QueueName, msg: Message): Prom
     const payload = JSON.parse(msg.content.toString()) as Payload;
     const now = new Date();
 
-    // Write to InfluxDB (batched internally — never blocks)
+    // Write raw point to InfluxDB for detail queries
     writeApi.writePoint(buildPoint(queue, payload, now));
+
+    // Accumulate into per-minute aggregate for fast dashboard queries
+    aggCounts[queue]++;
+    if (Math.floor(now.getTime() / 60_000) * 60_000 !== aggWindowStart) {
+      flushAggCounts();
+    }
 
     // Queue for batched MinIO write; ack happens only after successful write
     minioPending.push({ queue, payload, now, ch, msg });
@@ -255,6 +286,27 @@ async function setupQueues(ch: Channel, conn: any): Promise<void> {
   }
 }
 
+// ── System reset listener ─────────────────────────────────────────────────────
+// Receives broadcast reset commands from the API and clears in-memory state.
+// Uses an exclusive auto-delete queue so every replica gets the message.
+async function setupSystemListener(conn: any): Promise<void> {
+  const ch: Channel = await conn.createChannel();
+  await ch.assertExchange('system', 'fanout', { durable: false });
+  const { queue } = await ch.assertQueue('', { exclusive: true, autoDelete: true });
+  await ch.bindQueue(queue, 'system', '');
+  ch.consume(queue, (msg) => {
+    if (msg === null) return;
+    if (msg.content.toString() === 'reset') {
+      for (const q of QUEUES) aggCounts[q] = 0;
+      aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
+      impressionCache.clear();
+      minioPending.length = 0;
+      console.log('[consumer] reset: in-memory state cleared');
+    }
+    ch.ack(msg);
+  }, { noAck: false });
+}
+
 async function start(): Promise<void> {
   const conn = await connectWithRetry(process.env.RABBITMQ_URL!);
   // Use a setup channel just for asserting exchanges/queues/bindings
@@ -262,6 +314,7 @@ async function start(): Promise<void> {
   await setupQueues(setupCh, conn);
   // Close setup channel — actual consuming uses dedicated channels created inside setupQueues
   await setupCh.close();
+  await setupSystemListener(conn);
 }
 
 // ── Graceful shutdown ─────────────────────────────────────────────────────────
@@ -270,6 +323,7 @@ async function shutdown() {
   try {
     if (flushTimer) clearTimeout(flushTimer);
     await flushMinioBatch();
+    flushAggCounts();
     await writeApi.close();
   } catch (e) {
     console.error('[consumer] flush error on exit:', e);

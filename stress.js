@@ -167,6 +167,8 @@ function sendEvent({ path, body }) {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 let sent = 0, ok = 0, err = 0;
+const sentByType = { impression: 0, click: 0, conversion: 0 };
+const okByType   = { impression: 0, click: 0, conversion: 0 };
 const latencies = [];
 
 function percentile(arr, p) {
@@ -206,9 +208,12 @@ const ticker = setInterval(() => {
     return;
   }
   for (let i = 0; i < PER_TICK; i++) {
+    const ev = nextEvent();
+    const type = ev.path.split('/').pop(); // impression | click | conversion
     sent++;
-    sendEvent(nextEvent()).then(({ ok: wasOk, latency }) => {
-      if (wasOk) ok++; else err++;
+    sentByType[type] = (sentByType[type] || 0) + 1;
+    sendEvent(ev).then(({ ok: wasOk, latency }) => {
+      if (wasOk) { ok++; okByType[type] = (okByType[type] || 0) + 1; } else err++;
       if (latencies.length < 100_000) latencies.push(latency);
     });
   }
@@ -241,6 +246,16 @@ function printFinal() {
   console.log(` Errors/non-202: ${err}`);
   console.log(` Still in-flight: ${Math.max(0, sent - ok - err).toLocaleString()}`);
   console.log(` Capture rate  : ${capture}%`);
+  console.log(`${'─'.repeat(60)}`);
+  console.log(` SENT BY TYPE`);
+  console.log(`   Impressions : ${(sentByType.impression||0).toLocaleString()}`);
+  console.log(`   Clicks      : ${(sentByType.click||0).toLocaleString()}`);
+  console.log(`   Conversions : ${(sentByType.conversion||0).toLocaleString()}`);
+  console.log(` ACCEPTED (202) BY TYPE`);
+  console.log(`   Impressions : ${(okByType.impression||0).toLocaleString()}`);
+  console.log(`   Clicks      : ${(okByType.click||0).toLocaleString()}`);
+  console.log(`   Conversions : ${(okByType.conversion||0).toLocaleString()}`);
+  console.log(`${'─'.repeat(60)}`);
   console.log(` Latency p50   : ${percentile(latencies, 50)}ms`);
   console.log(` Latency p95   : ${percentile(latencies, 95)}ms`);
   console.log(` Latency p99   : ${percentile(latencies, 99)}ms`);
