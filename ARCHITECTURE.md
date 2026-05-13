@@ -106,20 +106,25 @@
 
 ## 4. AWS Cost Estimate — 1000 rps sustained (SKU-level, $/month)
 
-All prices us-east-1, on-demand, May 2026.
+All prices **us-east-1**, **on-demand** (lista pública típica; verificar siempre en [AWS Pricing Calculator](https://calculator.aws/)). Cifras orientativas **mayo 2026** / curso.
 
-| Service | SKU | Qty | Unit price | Monthly |
+**Supuesto alineado con este repo:** los JSON crudos van a S3 **por lote / por hora** (pocos `PUT`/mes), no un `PUT` por evento. Si se hiciera un `PUT` por evento a ~2,6 mil millones de eventos/mes, **solo S3 requests** superarían los cientos de miles de USD — por eso el diseño con partición horaria.
+
+| Service | SKU | Qty | Unit price (orientativo) | Monthly |
 |---|---|---|---|---|
 | ECS Fargate — API | 2 vCPU × 4 GB × 2 tasks | 730 h | $0.04048/vCPU-h + $0.004445/GB-h | **$144** |
 | ECS Fargate — Consumer | 1 vCPU × 2 GB × 2 tasks | 730 h | same rate | **$72** |
-| Amazon MQ (RabbitMQ) | `mq.m5.large` single-instance | 730 h | $0.288/h | **$210** |
-| EC2 (InfluxDB self-hosted) | `m5.xlarge` (4 vCPU, 16 GB) | 730 h | $0.192/h | **$140** |
-| EBS gp3 (InfluxDB data) | 500 GB | 1 month | $0.08/GB-month | **$40** |
-| S3 Standard (raw events, 30d) | ~4.3 TB storage | 1 month | $0.023/GB-month | **$100** |
-| S3 PUT requests | ~2.6M PUTs/month | — | $0.005/1 000 | **$13** |
-| Application Load Balancer | 1 ALB + ~10 LCU | 730 h | $0.008/h + $0.008/LCU-h | **$64** |
-| VPC NAT Gateway | 1 NAT + data | 730 h | $0.045/h + $0.045/GB | **$43** |
-| CloudWatch Logs | ~50 GB/month | — | $0.50/GB | **$25** |
-| **TOTAL** | | | | **≈ $851/month** |
+| Amazon MQ (RabbitMQ) | `mq.m5.large` single-instance | 730 h | ~$0.28–0.32/h (revisar lista MQ) | **$210** |
+| EC2 (InfluxDB self-hosted) | `m5.xlarge` (4 vCPU, 16 GB) | 730 h | ~$0.192/h | **$140** |
+| EBS gp3 (InfluxDB data) | 500 GB | 1 month | ~$0.08/GB-month | **$40** |
+| S3 Standard (raw, batched) | ~1.3 TB + pocos `PUT` | 1 month | ~$0.023/GB-month; PUT marginal | **~$30** |
+| Application Load Balancer | 1 ALB + ~10 LCU | 730 h | tarifa ALB + LCU | **$64** |
+| VPC NAT Gateway | 1 NAT + ~10 GB egress | 730 h | tarifa fija NAT + datos | **$43** |
+| CloudWatch Logs | ~50 GB/month | — | ~$0.50/GB-ingest (orden de magnitud) | **$25** |
+| **TOTAL (modelo referencia)** | | | | **≈ $768/month** |
 
-> Note: this does not include Reserved Instance discounts (up to 40% savings for 1-year commit) or Savings Plans.
+**No incluido en la tabla (pero en producción sumarían):** Redis → **ElastiCache** (desde ~\$12–25/mes para instancia pequeña), **data transfer** saliente más allá del supuesto, **multi-AZ**, **backups** gestionados, **Savings Plans / Reserved** (bajan 20–40 % compute/EC2).
+
+> Si replicás **4× API + 5× consumer** como en `docker-compose.yml`, el bloque Fargate **crece casi lineal** respecto a 2+2 tasks; el ~\$768 es un **escenario de referencia** docente, no un presupuesto de despliegue exacto.
+
+> Note: this does not include Reserved Instance discounts or Compute Savings Plans.

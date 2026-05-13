@@ -191,6 +191,9 @@ services:
       context: ./frontend
     ports:
       - "8080:80"
+    depends_on:
+      api-lb:
+        condition: service_started
     restart: unless-stopped
 
   grafana:
