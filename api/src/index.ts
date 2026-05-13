@@ -25,6 +25,18 @@ app.register(resetRoute);
 app.register(analyticsRoute);
 app.register(streamRoute);
 
+app.get('/', async () => ({
+  service: 'signal-catcher-api',
+  message: 'Esta es la API REST, no la interfaz web.',
+  health: '/health',
+  events: {
+    impression: 'POST /api/events/impression',
+    click: 'POST /api/events/click',
+    conversion: 'POST /api/events/conversion',
+  },
+  ui: 'Con docker compose, abre el frontend en http://localhost:8080 (y Costos AWS en /cloud-costs).',
+}));
+
 app.get('/health', async () => ({ status: 'ok' }));
 
 const start = async () => {

@@ -8,10 +8,12 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/',             icon: 'dashboard',    label: 'Dashboard' },
+  { to: '/architecture', icon: 'account_tree', label: 'Arquitectura' },
   { to: '/events',       icon: 'dynamic_feed', label: 'Events' },
   { to: '/queue-health', icon: 'monitoring',   label: 'Queue Health' },
-  { to: '/storage',    icon: 'storage',     label: 'Storage' },
-  { to: '/analytics', icon: 'bar_chart',   label: 'Analytics' },
+  { to: '/storage',      icon: 'storage',      label: 'Storage' },
+  { to: '/analytics',    icon: 'bar_chart',    label: 'Analytics' },
+  { to: '/cloud-costs',  icon: 'payments',     label: 'Costos AWS' },
 ];
 
 interface SidebarProps {

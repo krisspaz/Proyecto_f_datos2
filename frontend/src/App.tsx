@@ -6,6 +6,8 @@ import Events from './pages/Events';
 import QueueHealth from './pages/QueueHealth';
 import Storage from './pages/Storage';
 import Analytics from './pages/Analytics';
+import CloudCosts from './pages/CloudCosts';
+import Architecture from './pages/Architecture';
 
 export default function App() {
   const [collapsed, setCollapsed] = useState(false);
@@ -15,12 +17,15 @@ export default function App() {
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
       <main className={`flex-1 overflow-hidden transition-all duration-200 ${collapsed ? 'ml-16' : 'ml-64'}`}>
         <Routes>
-          <Route path="/"             element={<Dashboard />} />
+          {/* Rutas concretas primero; el * solo debe coger URLs que no existan en la app */}
+          <Route path="/architecture" element={<Architecture />} />
           <Route path="/events"       element={<Events />} />
           <Route path="/queue-health" element={<QueueHealth />} />
-          <Route path="/storage"    element={<Storage />} />
-          <Route path="/analytics"  element={<Analytics />} />
-          <Route path="*"           element={<Navigate to="/" replace />} />
+          <Route path="/storage"      element={<Storage />} />
+          <Route path="/analytics"    element={<Analytics />} />
+          <Route path="/cloud-costs" element={<CloudCosts />} />
+          <Route path="/"             element={<Dashboard />} />
+          <Route path="*"             element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
