@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import http from 'http';
+import net from 'net';
 import amqp from 'amqplib';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 
@@ -12,6 +13,17 @@ const s3 = new S3Client({
   },
   forcePathStyle: true,
 });
+
+function purgeRedis(): Promise<void> {
+  return new Promise((resolve) => {
+    const url = new URL(process.env.REDIS_URL ?? 'redis://redis:6379');
+    const sock = net.createConnection({ host: url.hostname, port: Number(url.port) || 6379 });
+    sock.on('connect', () => sock.write('*1\r\n$7\r\nFLUSHDB\r\n'));
+    sock.on('data', () => { sock.destroy(); resolve(); });
+    sock.on('error', () => resolve()); // non-critical, never fail the reset
+    setTimeout(() => { sock.destroy(); resolve(); }, 2000);
+  });
+}
 
 function purgeInflux(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -85,13 +97,19 @@ export default async function resetRoute(app: FastifyInstance) {
     // Respond immediately so nginx doesn't timeout — purge runs in background
     reply.send({ reset: true });
 
+    // First pass: notify consumers + purge queues/storage concurrently
     Promise.all([
-      purgeInflux(),
       purgeMinIO(),
+      purgeRedis(),
       purgeRabbit('clicks'),
       purgeRabbit('impressions'),
       purgeRabbit('conversions'),
       notifyConsumersReset(),
-    ]).catch((e) => console.error('[reset] background purge error:', e));
+      purgeInflux(),
+    ])
+    // Second pass: delete again after 3s to catch any writeApi flush that landed after the first delete
+    .then(() => new Promise<void>((r) => setTimeout(r, 3000)))
+    .then(() => purgeInflux())
+    .catch((e) => console.error('[reset] background purge error:', e));
   });
 }

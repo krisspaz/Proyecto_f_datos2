@@ -23,6 +23,8 @@ services:
       nofile:
         soft: 65535
         hard: 65535
+    mem_limit: 2g
+    memswap_limit: 2g
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -42,8 +44,13 @@ services:
       DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
       DOCKER_INFLUXDB_INIT_RETENTION: 30d
+      INFLUXD_STORAGE_CACHE_MAX_MEMORY_SIZE: 1073741824
+      INFLUXD_STORAGE_CACHE_SNAPSHOT_MEMORY_SIZE: 26214400
+    mem_limit: 4g
+    memswap_limit: 4g
     volumes:
       - influxdb_data:/var/lib/influxdb2
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "influx", "ping"]
       interval: 10s

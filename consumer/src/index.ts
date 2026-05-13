@@ -10,14 +10,19 @@ type QueueName = (typeof QUEUES)[number];
 type Payload   = Record<string, unknown>;
 
 const MAX_RETRIES      = 3;
-const MINIO_BATCH_SIZE = 100;
-const MINIO_FLUSH_MS   = 1000;
-const PREFETCH_PER_Q   = 500;
+const MINIO_BATCH_SIZE = 500;
+const MINIO_FLUSH_MS   = 2000;
+const PREFETCH_PER_Q   = 1000;
+
+// Unique per replica — prevents InfluxDB series collision when 5 consumers write same timestamp
+const CONSUMER_ID = process.env.HOSTNAME ?? `c-${Math.random().toString(36).slice(2)}`;
 
 // ── Redis — shared attribution cache across all consumer replicas ─────────────
 const redis = new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
   maxRetriesPerRequest: 1,
   enableReadyCheck: false,
+  connectTimeout: 5000,
+  commandTimeout: 100,
 });
 redis.on('error', (e) => console.error('[redis] error:', e.message));
 
@@ -32,6 +37,7 @@ function flushAggCounts(): void {
       writeApi.writePoint(
         new Point('events_agg')
           .tag('type', q)
+          .tag('consumer', CONSUMER_ID)
           .intField('count', aggCounts[q])
           .timestamp(windowTs)
       );
@@ -54,8 +60,8 @@ const writeApi: WriteApi = influx.getWriteApi(
   process.env.INFLUXDB_BUCKET!,
   'ms',
   {
-    batchSize:    1000,
-    flushInterval: 1000,
+    batchSize:    5000,
+    flushInterval: 2000,
     maxRetries: 5,
     maxRetryTime: 30_000,
     writeFailed: (_: Error, lines: string[], _attempt: number, _expires: number) => {
@@ -146,7 +152,6 @@ function buildPoint(queue: QueueName, payload: Payload, now: Date, resolvedAdver
   const point = new Point('events')
     .tag('type', queue)
     .intField('count', 1)
-    .stringField('payload', JSON.stringify(payload).slice(0, 512))
     .timestamp(now);
 
   if (queue === 'impressions') {
@@ -155,15 +160,17 @@ function buildPoint(queue: QueueName, payload: Payload, now: Date, resolvedAdver
     point
       .tag('state',         String(payload.state ?? 'unknown'))
       .tag('advertiser_id', advertiser_id)
-      .tag('campaign_id',   String(ads?.[0]?.campaign?.campaign_id ?? 'unknown'))
-      .tag('ad_id',         String(ads?.[0]?.ad?.ad_id ?? 'unknown'));
+      // campaign_id and ad_id moved to fields — they have 50-100 unique values
+      // and would create 375k series as tags, causing InfluxDB OOM at 10k rps
+      .stringField('campaign_id', String(ads?.[0]?.campaign?.campaign_id ?? 'unknown'))
+      .stringField('ad_id',       String(ads?.[0]?.ad?.ad_id ?? 'unknown'));
   } else if (queue === 'clicks') {
     const user = payload.user_info as Record<string, string>  | undefined;
     const ad   = payload.clicked_ad as Record<string, unknown> | undefined;
     const ttc  = typeof ad?.time_to_click === 'number' ? ad.time_to_click : 0;
     point
-      .tag('state',  String(user?.state  ?? 'unknown'))
-      .tag('ad_id',  String(ad?.ad_id ?? 'unknown'))
+      .tag('state', String(user?.state ?? 'unknown'))
+      .stringField('ad_id', String(ad?.ad_id ?? 'unknown'))
       .floatField('time_to_click', ttc);
   } else {
     const user  = payload.user_info   as Record<string, string>  | undefined;
@@ -217,6 +224,7 @@ async function processMessage(ch: Channel, queue: QueueName, msg: Message): Prom
     if (queue === 'conversions') {
       const imp_id = payload.impression_id as string;
       if (imp_id) {
+        // Non-blocking: if Redis is slow, use 'unknown' and move on
         resolvedAdvertiserId = (await redis.get(`imp:${imp_id}`).catch(() => null)) ?? 'unknown';
       }
     }
@@ -305,6 +313,8 @@ async function setupSystemListener(conn: any): Promise<void> {
       for (const q of QUEUES) aggCounts[q] = 0;
       aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
       minioPending.length = 0;
+      // Flush writeApi buffer so no stale points survive after InfluxDB delete
+      writeApi.flush().catch(() => {});
       console.log('[consumer] reset: in-memory state cleared');
     }
     ch.ack(msg);

@@ -29,6 +29,7 @@ const TIERS = {
   2: { rps: 500,  durationSec: 300 },
   3: { rps: 1000, durationSec: 300 },
   4: { rps: 2000, durationSec: 60  },
+  5: { rps: 4000, durationSec: 300 },
 };
 
 // ── CLI parsing ───────────────────────────────────────────────────────────────
@@ -140,8 +141,8 @@ function nextEvent() {
 const baseUrl  = new URL(host);
 const useHttps = baseUrl.protocol === 'https:';
 const agent    = useHttps
-  ? new https.Agent({ keepAlive: true, maxSockets: 512 })
-  : new http.Agent ({ keepAlive: true, maxSockets: 512 });
+  ? new https.Agent({ keepAlive: true, maxSockets: 1024 })
+  : new http.Agent ({ keepAlive: true, maxSockets: 1024 });
 
 function sendEvent({ path, body }) {
   return new Promise((resolve) => {

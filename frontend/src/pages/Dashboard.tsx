@@ -172,10 +172,17 @@ export default function Dashboard() {
     if (!window.confirm('¿Borrar todos los datos?')) return;
     setResetting(true);
     try {
-      await resetData(); // returns immediately, purge runs in background
+      await resetData();
     } catch { /* ignore */ }
-    // Wait for background purge to finish, then reload for a clean slate
-    setTimeout(() => window.location.reload(), 4000);
+    // Clear local state immediately so dashboard shows zeros right away
+    setSummary(EMPTY);
+    setTs([]);
+    setQueues([]);
+    lastGoodTs.current = [];
+    // Give backend 6s to finish both InfluxDB purge passes, MinIO, RabbitMQ
+    setTimeout(() => {
+      setResetting(false);
+    }, 6000);
   };
 
   /* ── Derived stats ────────────────────────────────────── */

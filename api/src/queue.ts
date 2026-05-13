@@ -6,14 +6,25 @@ const QUEUES   = ['impressions', 'clicks', 'conversions'] as const;
 
 export type QueueName = (typeof QUEUES)[number];
 
-// In-process ring buffer per queue.
-// HTTP returns 202 immediately; a background loop drains to AMQP.
-// Capped to prevent unbounded memory growth if RabbitMQ is unavailable.
-const MAX_BUFFER = 100_000;
+const MAX_BUFFER  = 2_000_000;
+const DRAIN_CHUNK = 5_000;
+// Compact backing array when this many slots at the front are dead
+const COMPACT_AT  = 50_000;
+
+let drainScheduled = false;
+
+// Each buffer is a flat array + a head pointer.
+// Draining advances head (O(1)); no splice until fully drained or COMPACT_AT reached.
+// This eliminates the O(n²) cost of splice(0, i) on large buffers.
 const buffers: Record<QueueName, Buffer[]> = {
   impressions: [],
   clicks: [],
   conversions: [],
+};
+const heads: Record<QueueName, number> = {
+  impressions: 0,
+  clicks: 0,
+  conversions: 0,
 };
 
 const channels: Partial<Record<QueueName, Channel>> = {};
@@ -21,29 +32,46 @@ const channels: Partial<Record<QueueName, Channel>> = {};
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AmqpConn = any;
 
+function activeCount(q: QueueName): number {
+  return buffers[q].length - heads[q];
+}
+
 // ── drain ──────────────────────────────────────────────────────────────────────
-// Called after every publish() and after AMQP drain events.
-// Stops when the TCP buffer is full; resumes on the next drain event.
 function drainQueue(q: QueueName): void {
   const ch  = channels[q];
   const buf = buffers[q];
-  if (!ch || buf.length === 0) return;
+  let   head = heads[q];
 
-  let i = 0;
-  while (i < buf.length) {
-    const ok = ch.publish(EXCHANGE, q, buf[i], {
+  if (!ch || head >= buf.length) return;
+
+  let count = 0;
+  while (head < buf.length && count < DRAIN_CHUNK) {
+    const ok = ch.publish(EXCHANGE, q, buf[head], {
       persistent: true,
       contentType: 'application/json',
     });
     if (!ok) {
-      // TCP send-buffer full — drop already-sent items, resume on drain
-      if (i > 0) buf.splice(0, i);
+      heads[q] = head;
       ch.once('drain', () => drainQueue(q));
       return;
     }
-    i++;
+    head++;
+    count++;
   }
-  buf.length = 0; // O(1) clear instead of N shift() calls
+  heads[q] = head;
+
+  if (head >= buf.length) {
+    // Fully drained — O(1) reset, releases all Buffer references
+    buf.length = 0;
+    heads[q]   = 0;
+  } else {
+    // Compact periodically to prevent unbounded array growth under sustained load
+    if (head >= COMPACT_AT) {
+      buf.splice(0, head); // O(active_count), not O(total) since head ≈ half
+      heads[q] = 0;
+    }
+    setImmediate(() => drainQueue(q));
+  }
 }
 
 function drainBuffers(): void {
@@ -101,7 +129,7 @@ async function connect(url: string): Promise<void> {
   }
 
   console.log('[rabbitmq] connected — 3 dedicated channels ready');
-  drainBuffers(); // flush anything accumulated while reconnecting
+  drainBuffers();
 }
 
 export async function connectQueue(): Promise<void> {
@@ -109,34 +137,36 @@ export async function connectQueue(): Promise<void> {
 }
 
 // ── publish ───────────────────────────────────────────────────────────────────
-// Fire-and-forget: push to ring buffer, return immediately.
-// Returns false if the buffer is full (caller should respond 503).
 export function publish(queue: QueueName, payload: object): boolean {
-  if (buffers[queue].length >= MAX_BUFFER) {
+  if (activeCount(queue) >= MAX_BUFFER) {
     console.warn(`[queue] ${queue} buffer full (${MAX_BUFFER}) — rejecting`);
     return false;
   }
   buffers[queue].push(Buffer.from(JSON.stringify(payload)));
-  drainBuffers();
+  if (!drainScheduled) {
+    drainScheduled = true;
+    setImmediate(() => {
+      drainScheduled = false;
+      drainBuffers();
+    });
+  }
   return true;
 }
 
 // ── graceful shutdown ─────────────────────────────────────────────────────────
-// On SIGTERM (docker compose down / restart), drain the in-memory buffer
-// before exiting so no buffered messages are lost.
 export async function drainAndExit(code = 0): Promise<never> {
   const start    = Date.now();
-  const deadline = 25_000; // 25 s — Docker's default SIGTERM→SIGKILL window is 30 s
+  const deadline = 25_000;
 
   console.log('[api] draining in-memory buffers before shutdown...');
-  while (Object.values(buffers).some((b) => b.length > 0)) {
+  while (QUEUES.some((q) => activeCount(q) > 0)) {
     drainBuffers();
     if (Date.now() - start > deadline) {
-      const left = Object.values(buffers).reduce((s, b) => s + b.length, 0);
+      const left = QUEUES.reduce((s, q) => s + activeCount(q), 0);
       console.warn(`[api] drain timeout — ${left} messages still in buffer`);
       break;
     }
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 10));
   }
 
   console.log('[api] buffers drained — exiting');
