@@ -7,7 +7,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import {
-  fetchSummary, fetchTimeseries, fetchQueueStatus, fireEvent, resetData,
+  createStream, fetchTimeseries, fireEvent, resetData,
   type Summary, type TimePoint, type QueueStatus,
 } from '../api';
 
@@ -80,51 +80,41 @@ export default function Dashboard() {
   const [resetting, setResetting]   = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
-  // Keep last good timeseries so chart never goes blank on a failed poll
   const lastGoodTs = useRef<TimePoint[]>([]);
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const load = useCallback(async () => {
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 12_000);
-
-    try {
-      const [s, t, q] = await Promise.all([
-        fetchSummary().catch(() => null),
-        fetchTimeseries('1m', '1h').catch(() => null),
-        fetchQueueStatus().catch(() => [] as QueueStatus[]),
-      ]);
-
-      if (s) setSummary(s);
-
-      if (t && t.length > 0) {
-        lastGoodTs.current = t;
-        setTs(t);
+  // SSE for summary + queues — push every 2s from server
+  useEffect(() => {
+    const es = createStream(
+      ({ summary: s, queues: q }) => {
+        setSummary(s);
+        setQueues(q);
+        setLastUpdate(new Date());
         setFetchError(false);
-      } else if (t !== null) {
-        // returned empty array — clear chart
-        lastGoodTs.current = [];
-        setTs([]);
-        setFetchError(false);
-      } else {
-        // fetch failed — keep last good data
-        if (lastGoodTs.current.length > 0) setTs(lastGoodTs.current);
-        setFetchError(true);
-      }
+      },
+      () => setFetchError(true),
+    );
+    return () => es.close();
+  }, []);
 
-      setQueues(q);
-      setLastUpdate(new Date());
-    } finally {
-      clearTimeout(tid);
+  // Timeseries stays on poll — heavier query, 10s is fine
+  const loadTs = useCallback(async () => {
+    const t = await fetchTimeseries('1m', '1h').catch(() => null);
+    if (t && t.length > 0) {
+      lastGoodTs.current = t;
+      setTs(t);
+    } else if (t !== null) {
+      lastGoodTs.current = [];
+      setTs([]);
+    } else if (lastGoodTs.current.length > 0) {
+      setTs(lastGoodTs.current);
     }
   }, []);
 
   useEffect(() => {
-    load();
-    timerRef.current = setInterval(load, 5000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [load]);
+    loadTs();
+    const id = setInterval(loadTs, 10_000);
+    return () => clearInterval(id);
+  }, [loadTs]);
 
   /* ── Fire events ──────────────────────────────────────── */
   const handleFireEvents = async () => {
@@ -171,7 +161,7 @@ export default function Dashboard() {
       }
 
       await Promise.all(batch);
-      setTimeout(load, 2500);
+      setTimeout(loadTs, 2500);
     } finally {
       setIsFiring(false);
     }
@@ -181,23 +171,11 @@ export default function Dashboard() {
   const handleReset = async () => {
     if (!window.confirm('¿Borrar todos los datos?')) return;
     setResetting(true);
-    // Stop polling so stale data doesn't repopulate
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     try {
-      await resetData();
-    } finally {
-      // Zero out UI immediately — polling will reconcile once InfluxDB finishes the delete
-      setSummary(EMPTY);
-      setTs([]);
-      setFetchError(false);
-      lastGoodTs.current = [];
-      setResetting(false);
-      // Restart polling with a short initial delay so InfluxDB has time to finish deleting
-      setTimeout(() => {
-        timerRef.current = setInterval(load, 5000);
-        load();
-      }, 3000);
-    }
+      await resetData(); // returns immediately, purge runs in background
+    } catch { /* ignore */ }
+    // Wait for background purge to finish, then reload for a clean slate
+    setTimeout(() => window.location.reload(), 4000);
   };
 
   /* ── Derived stats ────────────────────────────────────── */
@@ -332,7 +310,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-black text-white tracking-tight">Live Dashboard</h2>
           <p className="text-[11px] text-slate-600 mt-0.5">
             {lastUpdate
-              ? `Actualizado ${lastUpdate.toLocaleTimeString('es-GT', { hour12: false })} · cada 5s`
+              ? `Actualizado ${lastUpdate.toLocaleTimeString('es-GT', { hour12: false })} · live SSE`
               : 'Conectando...'}
             {fetchError && <span className="text-amber-500 ml-2">· chart usando datos anteriores</span>}
           </p>

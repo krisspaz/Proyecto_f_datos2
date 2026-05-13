@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import QueueHealth from './pages/QueueHealth';
 import Storage from './pages/Storage';
+import Analytics from './pages/Analytics';
 
 export default function App() {
   const [collapsed, setCollapsed] = useState(false);
@@ -17,8 +18,9 @@ export default function App() {
           <Route path="/"             element={<Dashboard />} />
           <Route path="/events"       element={<Events />} />
           <Route path="/queue-health" element={<QueueHealth />} />
-          <Route path="/storage"      element={<Storage />} />
-          <Route path="*"             element={<Navigate to="/" replace />} />
+          <Route path="/storage"    element={<Storage />} />
+          <Route path="/analytics"  element={<Analytics />} />
+          <Route path="*"           element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

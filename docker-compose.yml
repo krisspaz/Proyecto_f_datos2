@@ -1,4 +1,13 @@
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   rabbitmq:
     image: rabbitmq:3.13-management
     ports:
@@ -89,7 +98,7 @@ services:
       "
     restart: "no"
 
-  # API runs as 2 replicas — no direct port binding, api-lb handles external access
+  # API runs as 4 replicas — no direct port binding, api-lb handles external access
   api:
     build:
       context: ./api
@@ -119,7 +128,7 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: 4
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
       interval: 5s
@@ -154,6 +163,7 @@ services:
       MINIO_USER: ${MINIO_USER}
       MINIO_PASS: ${MINIO_PASS}
       MINIO_BUCKET: ${MINIO_BUCKET}
+      REDIS_URL: redis://redis:6379
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -163,9 +173,11 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     deploy:
-      replicas: 3
+      replicas: 5
 
   frontend:
     build:

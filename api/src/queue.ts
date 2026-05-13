@@ -24,24 +24,30 @@ type AmqpConn = any;
 // ── drain ──────────────────────────────────────────────────────────────────────
 // Called after every publish() and after AMQP drain events.
 // Stops when the TCP buffer is full; resumes on the next drain event.
-function drainBuffers(): void {
-  for (const q of QUEUES) {
-    const ch = channels[q];
-    if (!ch || buffers[q].length === 0) continue;
+function drainQueue(q: QueueName): void {
+  const ch  = channels[q];
+  const buf = buffers[q];
+  if (!ch || buf.length === 0) return;
 
-    while (buffers[q].length > 0) {
-      const ok = ch.publish(EXCHANGE, q, buffers[q][0], {
-        persistent: true,
-        contentType: 'application/json',
-      });
-      if (!ok) {
-        // TCP send-buffer full — wait for drain event before continuing
-        ch.once('drain', drainBuffers);
-        return;
-      }
-      buffers[q].shift();
+  let i = 0;
+  while (i < buf.length) {
+    const ok = ch.publish(EXCHANGE, q, buf[i], {
+      persistent: true,
+      contentType: 'application/json',
+    });
+    if (!ok) {
+      // TCP send-buffer full — drop already-sent items, resume on drain
+      if (i > 0) buf.splice(0, i);
+      ch.once('drain', () => drainQueue(q));
+      return;
     }
+    i++;
   }
+  buf.length = 0; // O(1) clear instead of N shift() calls
+}
+
+function drainBuffers(): void {
+  for (const q of QUEUES) drainQueue(q);
 }
 
 // ── connection ────────────────────────────────────────────────────────────────

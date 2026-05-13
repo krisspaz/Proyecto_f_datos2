@@ -7,6 +7,8 @@ import metricsRoute from './routes/metrics';
 import queuesRoute from './routes/queues';
 import storageRoute from './routes/storage';
 import resetRoute from './routes/reset';
+import analyticsRoute from './routes/analytics';
+import streamRoute from './routes/stream';
 
 const app = Fastify({
   logger: { level: 'warn' },
@@ -20,6 +22,8 @@ app.register(metricsRoute);
 app.register(queuesRoute);
 app.register(storageRoute);
 app.register(resetRoute);
+app.register(analyticsRoute);
+app.register(streamRoute);
 
 app.get('/health', async () => ({ status: 'ok' }));
 

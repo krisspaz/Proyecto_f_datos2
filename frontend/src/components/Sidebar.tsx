@@ -10,7 +10,8 @@ const NAV: NavItem[] = [
   { to: '/',             icon: 'dashboard',    label: 'Dashboard' },
   { to: '/events',       icon: 'dynamic_feed', label: 'Events' },
   { to: '/queue-health', icon: 'monitoring',   label: 'Queue Health' },
-  { to: '/storage',      icon: 'storage',      label: 'Storage' },
+  { to: '/storage',    icon: 'storage',     label: 'Storage' },
+  { to: '/analytics', icon: 'bar_chart',   label: 'Analytics' },
 ];
 
 interface SidebarProps {

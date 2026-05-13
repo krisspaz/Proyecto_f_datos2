@@ -82,14 +82,16 @@ async function notifyConsumersReset(): Promise<void> {
 
 export default async function resetRoute(app: FastifyInstance) {
   app.post('/api/reset', async (_req, reply) => {
-    await Promise.all([
+    // Respond immediately so nginx doesn't timeout — purge runs in background
+    reply.send({ reset: true });
+
+    Promise.all([
       purgeInflux(),
       purgeMinIO(),
       purgeRabbit('clicks'),
       purgeRabbit('impressions'),
       purgeRabbit('conversions'),
       notifyConsumersReset(),
-    ]);
-    reply.send({ reset: true });
+    ]).catch((e) => console.error('[reset] background purge error:', e));
   });
 }

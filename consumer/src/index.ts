@@ -1,6 +1,7 @@
 import amqp, { Channel, Message } from 'amqplib';
 import { InfluxDB, Point, WriteApi } from '@influxdata/influxdb-client';
 import { Client as MinioClient } from 'minio';
+import Redis from 'ioredis';
 
 const EXCHANGE = 'events';
 const DLX      = 'events.dlx';
@@ -9,17 +10,18 @@ type QueueName = (typeof QUEUES)[number];
 type Payload   = Record<string, unknown>;
 
 const MAX_RETRIES      = 3;
-const MINIO_BATCH_SIZE = 100;   // messages per MinIO file
-const MINIO_FLUSH_MS   = 1000;  // max ms between MinIO flushes
-const PREFETCH_PER_Q   = 500;   // unacked msgs per queue channel
+const MINIO_BATCH_SIZE = 100;
+const MINIO_FLUSH_MS   = 1000;
+const PREFETCH_PER_Q   = 500;
 
-// impression_id → advertiser_id (attribution lookup for conversions)
-const impressionCache = new Map<string, string>();
-const CACHE_MAX = 100_000;
+// ── Redis — shared attribution cache across all consumer replicas ─────────────
+const redis = new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
+  maxRetriesPerRequest: 1,
+  enableReadyCheck: false,
+});
+redis.on('error', (e) => console.error('[redis] error:', e.message));
 
 // ── Per-minute aggregator ─────────────────────────────────────────────────────
-// Accumulates counts in memory and writes ONE point per type per minute
-// to `events_agg` measurement — keeps InfluxDB lean and dashboard queries fast
 const aggCounts: Record<QueueName, number> = { impressions: 0, clicks: 0, conversions: 0 };
 let aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
 
@@ -39,7 +41,6 @@ function flushAggCounts(): void {
   aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
 }
 
-// Flush every 60s so each minute gets exactly one aggregated point per type
 setInterval(flushAggCounts, 60_000);
 
 // ── InfluxDB ──────────────────────────────────────────────────────────────────
@@ -53,11 +54,10 @@ const writeApi: WriteApi = influx.getWriteApi(
   process.env.INFLUXDB_BUCKET!,
   'ms',
   {
-    batchSize:    1000,   // flush every 1000 pts
-    flushInterval: 1000,  // or every 1 s
+    batchSize:    1000,
+    flushInterval: 1000,
     maxRetries: 5,
     maxRetryTime: 30_000,
-    // Log dropped points so we notice if InfluxDB falls behind
     writeFailed: (_: Error, lines: string[], _attempt: number, _expires: number) => {
       console.error(`[influx] write failed — ${lines.length} points will be retried`);
     },
@@ -98,7 +98,6 @@ async function flushMinioBatch(): Promise<void> {
 
   const batch = minioPending.splice(0, minioPending.length);
 
-  // Group by queue+hour so each MinIO file stays within one partition
   const groups = new Map<string, PendingMinIO[]>();
   for (const item of batch) {
     const h   = String(item.now.getHours()).padStart(2, '0');
@@ -123,7 +122,6 @@ async function flushMinioBatch(): Promise<void> {
         for (const item of items) item.ch.ack(item.msg);
       } catch (err) {
         console.error('[minio] batch write failed, nacking for retry:', (err as Error).message);
-        // nack with requeue=true — messages go back to the queue
         for (const item of items) item.ch.nack(item.msg, false, true);
       }
     })
@@ -143,7 +141,8 @@ function scheduleMinioBatch(): void {
 }
 
 // ── InfluxDB point builder ────────────────────────────────────────────────────
-function buildPoint(queue: QueueName, payload: Payload, now: Date): Point {
+// resolvedAdvertiserId is pre-fetched from Redis for conversions
+function buildPoint(queue: QueueName, payload: Payload, now: Date, resolvedAdvertiserId?: string): Point {
   const point = new Point('events')
     .tag('type', queue)
     .intField('count', 1)
@@ -158,11 +157,6 @@ function buildPoint(queue: QueueName, payload: Payload, now: Date): Point {
       .tag('advertiser_id', advertiser_id)
       .tag('campaign_id',   String(ads?.[0]?.campaign?.campaign_id ?? 'unknown'))
       .tag('ad_id',         String(ads?.[0]?.ad?.ad_id ?? 'unknown'));
-
-    const imp_id = payload.impression_id as string;
-    if (imp_id && impressionCache.size < CACHE_MAX) {
-      impressionCache.set(imp_id, advertiser_id);
-    }
   } else if (queue === 'clicks') {
     const user = payload.user_info as Record<string, string>  | undefined;
     const ad   = payload.clicked_ad as Record<string, unknown> | undefined;
@@ -176,12 +170,10 @@ function buildPoint(queue: QueueName, payload: Payload, now: Date): Point {
     const attr  = payload.attribution_info as Record<string, unknown> | undefined;
     const revenue = typeof payload.conversion_value === 'number' ? payload.conversion_value : 0;
     const ttconv  = typeof attr?.time_to_convert  === 'number' ? attr.time_to_convert  : 0;
-    const imp_id  = payload.impression_id as string;
-    const advertiser_id = (imp_id && impressionCache.get(imp_id)) ?? 'unknown';
     point
       .tag('state',           String(user?.state ?? 'unknown'))
       .tag('conversion_type', String(payload.conversion_type ?? 'unknown'))
-      .tag('advertiser_id',   advertiser_id)
+      .tag('advertiser_id',   resolvedAdvertiserId ?? 'unknown')
       .floatField('revenue',          revenue)
       .floatField('time_to_convert',  ttconv);
   }
@@ -210,16 +202,32 @@ async function processMessage(ch: Channel, queue: QueueName, msg: Message): Prom
     const payload = JSON.parse(msg.content.toString()) as Payload;
     const now = new Date();
 
-    // Write raw point to InfluxDB for detail queries
-    writeApi.writePoint(buildPoint(queue, payload, now));
+    // For impressions: store advertiser_id in Redis for cross-replica attribution
+    if (queue === 'impressions') {
+      const imp_id = payload.impression_id as string;
+      if (imp_id) {
+        const ads = payload.ads as Array<Record<string, Record<string, string>>> | undefined;
+        const adv_id = String(ads?.[0]?.advertiser?.advertiser_id ?? 'unknown');
+        redis.set(`imp:${imp_id}`, adv_id, 'EX', 86400).catch(() => {});
+      }
+    }
 
-    // Accumulate into per-minute aggregate for fast dashboard queries
+    // For conversions: look up advertiser_id from Redis (set by any consumer replica)
+    let resolvedAdvertiserId: string | undefined;
+    if (queue === 'conversions') {
+      const imp_id = payload.impression_id as string;
+      if (imp_id) {
+        resolvedAdvertiserId = (await redis.get(`imp:${imp_id}`).catch(() => null)) ?? 'unknown';
+      }
+    }
+
+    writeApi.writePoint(buildPoint(queue, payload, now, resolvedAdvertiserId));
+
     aggCounts[queue]++;
     if (Math.floor(now.getTime() / 60_000) * 60_000 !== aggWindowStart) {
       flushAggCounts();
     }
 
-    // Queue for batched MinIO write; ack happens only after successful write
     minioPending.push({ queue, payload, now, ch, msg });
     scheduleMinioBatch();
   } catch (err) {
@@ -227,12 +235,12 @@ async function processMessage(ch: Channel, queue: QueueName, msg: Message): Prom
     if (retryCount < MAX_RETRIES - 1) {
       scheduleRetry(ch, queue, msg, retryCount);
     } else {
-      ch.nack(msg, false, false); // exhausted retries → DLQ
+      ch.nack(msg, false, false);
     }
   }
 }
 
-// ── RabbitMQ — one dedicated channel per queue ────────────────────────────────
+// ── RabbitMQ ──────────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function connectWithRetry(url: string): Promise<any> {
   let delay = 1000;
@@ -269,7 +277,6 @@ async function setupQueues(ch: Channel, conn: any): Promise<void> {
     await ch.bindQueue(q, EXCHANGE, q);
   }
 
-  // One dedicated channel per queue type — independent prefetch windows
   for (const q of QUEUES) {
     const qCh: Channel = await conn.createChannel();
     qCh.prefetch(PREFETCH_PER_Q);
@@ -286,9 +293,7 @@ async function setupQueues(ch: Channel, conn: any): Promise<void> {
   }
 }
 
-// ── System reset listener ─────────────────────────────────────────────────────
-// Receives broadcast reset commands from the API and clears in-memory state.
-// Uses an exclusive auto-delete queue so every replica gets the message.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function setupSystemListener(conn: any): Promise<void> {
   const ch: Channel = await conn.createChannel();
   await ch.assertExchange('system', 'fanout', { durable: false });
@@ -299,7 +304,6 @@ async function setupSystemListener(conn: any): Promise<void> {
     if (msg.content.toString() === 'reset') {
       for (const q of QUEUES) aggCounts[q] = 0;
       aggWindowStart = Math.floor(Date.now() / 60_000) * 60_000;
-      impressionCache.clear();
       minioPending.length = 0;
       console.log('[consumer] reset: in-memory state cleared');
     }
@@ -309,10 +313,8 @@ async function setupSystemListener(conn: any): Promise<void> {
 
 async function start(): Promise<void> {
   const conn = await connectWithRetry(process.env.RABBITMQ_URL!);
-  // Use a setup channel just for asserting exchanges/queues/bindings
   const setupCh: Channel = await conn.createChannel();
   await setupQueues(setupCh, conn);
-  // Close setup channel — actual consuming uses dedicated channels created inside setupQueues
   await setupCh.close();
   await setupSystemListener(conn);
 }
@@ -325,6 +327,7 @@ async function shutdown() {
     await flushMinioBatch();
     flushAggCounts();
     await writeApi.close();
+    await redis.quit();
   } catch (e) {
     console.error('[consumer] flush error on exit:', e);
   }
