@@ -96,4 +96,34 @@ export default async function analyticsRoute(app: FastifyInstance) {
 
     reply.send({ ctr, convRate, ...counts });
   });
+
+  // Average time-to-click and time-to-convert, last hour
+  app.get('/api/analytics/latency-averages', async (_req, reply) => {
+    const query = `
+      from(bucket: "${bucket()}")
+        |> range(start: -1h)
+        |> filter(fn: (r) => r._measurement == "events" and (r._field == "time_to_click" or r._field == "time_to_convert"))
+        |> group(columns: ["_field"])
+        |> mean()
+    `;
+
+    const averages = { avgTimeToClick: 0, avgTimeToConvert: 0 };
+    await new Promise<void>((resolve, reject) => {
+      queryApi.queryRows(query, {
+        next(row, meta) {
+          const obj = meta.toObject(row) as Row;
+          const field = String(obj['_field']);
+          if (field === 'time_to_click') averages.avgTimeToClick = Number(obj['_value']);
+          if (field === 'time_to_convert') averages.avgTimeToConvert = Number(obj['_value']);
+        },
+        error: reject,
+        complete: resolve,
+      });
+    });
+
+    reply.send({
+      avgTimeToClick: Number(averages.avgTimeToClick.toFixed(2)),
+      avgTimeToConvert: Number(averages.avgTimeToConvert.toFixed(2)),
+    });
+  });
 }

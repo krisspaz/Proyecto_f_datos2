@@ -24,7 +24,7 @@ const redis = new Redis(process.env.REDIS_URL ?? 'redis://redis:6379', {
   connectTimeout: 5000,
   commandTimeout: 100,
 });
-redis.on('error', (e) => console.error('[redis] error:', e.message));
+redis.on('error', (e: Error) => console.error('[redis] error:', e.message));
 
 // ── Per-minute aggregator ─────────────────────────────────────────────────────
 const aggCounts: Record<QueueName, number> = { impressions: 0, clicks: 0, conversions: 0 };
@@ -83,6 +83,7 @@ interface PendingMinIO {
   queue:   QueueName;
   payload: Payload;
   now:     Date;
+  resolvedAdvertiserId?: string;
   ch:      Channel;
   msg:     Message;
 }
@@ -125,6 +126,14 @@ async function flushMinioBatch(): Promise<void> {
       );
       try {
         await minio.putObject(process.env.MINIO_BUCKET!, key, body);
+        for (const item of items) {
+          writeApi.writePoint(buildPoint(item.queue, item.payload, item.now, item.resolvedAdvertiserId));
+          aggCounts[item.queue]++;
+          if (Math.floor(item.now.getTime() / 60_000) * 60_000 !== aggWindowStart) {
+            flushAggCounts();
+          }
+        }
+        await writeApi.flush();
         for (const item of items) item.ch.ack(item.msg);
       } catch (err) {
         console.error('[minio] batch write failed, nacking for retry:', (err as Error).message);
@@ -229,14 +238,7 @@ async function processMessage(ch: Channel, queue: QueueName, msg: Message): Prom
       }
     }
 
-    writeApi.writePoint(buildPoint(queue, payload, now, resolvedAdvertiserId));
-
-    aggCounts[queue]++;
-    if (Math.floor(now.getTime() / 60_000) * 60_000 !== aggWindowStart) {
-      flushAggCounts();
-    }
-
-    minioPending.push({ queue, payload, now, ch, msg });
+    minioPending.push({ queue, payload, now, resolvedAdvertiserId, ch, msg });
     scheduleMinioBatch();
   } catch (err) {
     console.error(`[${queue}] error (attempt ${retryCount + 1}/${MAX_RETRIES}):`, (err as Error).message);

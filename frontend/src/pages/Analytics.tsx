@@ -6,13 +6,14 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import {
-  fetchTopStates, fetchTopAdvertisers, fetchGauges,
-  type TopState, type TopAdvertiser, type Gauges,
+  fetchTopStates, fetchTopAdvertisers, fetchGauges, fetchLatencyAverages,
+  type TopState, type TopAdvertiser, type Gauges, type LatencyAverages,
 } from '../api';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const EMPTY_GAUGES: Gauges = { ctr: 0, convRate: 0, impressions: 0, clicks: 0, conversions: 0 };
+const EMPTY_LATENCY: LatencyAverages = { avgTimeToClick: 0, avgTimeToConvert: 0 };
 
 function GaugeArc({ value, max, color, label }: { value: number; max: number; color: string; label: string }) {
   const pct  = Math.min(value / max, 1);
@@ -62,19 +63,22 @@ export default function Analytics() {
   const [states,      setStates]      = useState<TopState[]>([]);
   const [advertisers, setAdvertisers] = useState<TopAdvertiser[]>([]);
   const [gauges,      setGauges]      = useState<Gauges>(EMPTY_GAUGES);
+  const [latency,     setLatency]     = useState<LatencyAverages>(EMPTY_LATENCY);
   const [lastUpdate,  setLastUpdate]  = useState<Date | null>(null);
   const [loading,     setLoading]     = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [s, a, g] = await Promise.all([
+      const [s, a, g, l] = await Promise.all([
         fetchTopStates().catch(() => [] as TopState[]),
         fetchTopAdvertisers().catch(() => [] as TopAdvertiser[]),
         fetchGauges().catch(() => EMPTY_GAUGES),
+        fetchLatencyAverages().catch(() => EMPTY_LATENCY),
       ]);
       setStates(s);
       setAdvertisers(a);
       setGauges(g);
+      setLatency(l);
       setLastUpdate(new Date());
     } finally {
       setLoading(false);
@@ -151,6 +155,17 @@ export default function Analytics() {
                   <span className="ml-auto font-bold text-white">{gauges.conversions.toLocaleString()}</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Avg time-to-click</p>
+              <p className="mt-3 text-3xl font-black text-white">{latency.avgTimeToClick.toLocaleString()}s</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Avg time-to-convert</p>
+              <p className="mt-3 text-3xl font-black text-white">{latency.avgTimeToConvert.toLocaleString()}s</p>
             </div>
           </div>
 

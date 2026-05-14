@@ -81,10 +81,12 @@ export const fireEvent = (queue: string, payload: object) =>
 export interface TopState    { state: string; count: number }
 export interface TopAdvertiser { advertiser_id: string; revenue: number }
 export interface Gauges { ctr: number; convRate: number; impressions: number; clicks: number; conversions: number }
+export interface LatencyAverages { avgTimeToClick: number; avgTimeToConvert: number }
 
 export const fetchTopStates      = () => get<TopState[]>('/api/analytics/top-states');
 export const fetchTopAdvertisers = () => get<TopAdvertiser[]>('/api/analytics/top-advertisers');
 export const fetchGauges         = () => get<Gauges>('/api/analytics/gauges');
+export const fetchLatencyAverages = () => get<LatencyAverages>('/api/analytics/latency-averages');
 
 export const resetData = () =>
   fetch('/api/reset', { method: 'POST' }).then((r) => {
