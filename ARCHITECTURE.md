@@ -124,7 +124,3 @@ All prices **us-east-1**, **on-demand** (lista pública típica; verificar siemp
 | **TOTAL (modelo referencia)** | | | | **≈ $768/month** |
 
 **No incluido en la tabla (pero en producción sumarían):** Redis → **ElastiCache** (desde ~\$12–25/mes para instancia pequeña), **data transfer** saliente más allá del supuesto, **multi-AZ**, **backups** gestionados, **Savings Plans / Reserved** (bajan 20–40 % compute/EC2).
-
-> Si replicás **4× API + 5× consumer** como en `docker-compose.yml`, el bloque Fargate **crece casi lineal** respecto a 2+2 tasks; el ~\$768 es un **escenario de referencia** docente, no un presupuesto de despliegue exacto.
-
-> Note: this does not include Reserved Instance discounts or Compute Savings Plans.
