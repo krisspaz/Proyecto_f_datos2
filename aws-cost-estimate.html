@@ -87,6 +87,34 @@
       margin-top: 6px;
     }
 
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .evidence-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .evidence-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #0f172a;
+    }
+    .evidence-caption {
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      border-top: 1px solid #334155;
+    }
+
     /* Section */
     h2 {
       font-size: 14px;
@@ -209,6 +237,13 @@
     }
     .note-box strong { color: #e2e8f0; }
 
+    @media (max-width: 800px) {
+      .summary-grid,
+      .evidence-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     footer {
       text-align: center;
       color: #334155;
@@ -225,25 +260,39 @@
   <div class="header">
     <div class="header-tag">// DATOS II · SIGNAL CATCHER</div>
     <h1>AWS Infrastructure Cost Estimate</h1>
-    <p class="subtitle">Carga sostenida: 1,000 rps · Región: us-east-1 · Precios on-demand, mayo 2026</p>
+    <p class="subtitle">Carga sostenida: 300 rps · Región: us-east-1 · Precios on-demand, mayo 2026</p>
   </div>
 
   <!-- Summary cards -->
   <div class="summary-grid">
     <div class="summary-card highlight">
       <div class="summary-label">Costo mensual estimado</div>
-      <div class="summary-value">$851<span>/mes</span></div>
-      <div class="summary-note">A 1,000 rps sostenido</div>
+      <div class="summary-value">$486<span>/mes</span></div>
+      <div class="summary-note">A 300 rps sostenido</div>
     </div>
     <div class="summary-card">
       <div class="summary-label">Con Reserved Instances (1 año)</div>
-      <div class="summary-value">~$510<span>/mes</span></div>
+      <div class="summary-value">~$380<span>/mes</span></div>
       <div class="summary-note">Ahorro ~40% en compute</div>
     </div>
     <div class="summary-card">
       <div class="summary-label">Eventos procesados / mes</div>
-      <div class="summary-value">2.6<span>B</span></div>
-      <div class="summary-note">1,000 rps × 730 h × 3,600 s</div>
+      <div class="summary-value">788<span>M</span></div>
+      <div class="summary-note">300 rps × 730 h × 3,600 s</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Evidencia de pruebas de carga</h2>
+    <div class="evidence-grid">
+      <div class="evidence-card">
+        <img src="50 rps.png" alt="Resultado de prueba de carga a 50 rps" />
+        <div class="evidence-caption">Prueba de carga — 50 rps</div>
+      </div>
+      <div class="evidence-card">
+        <img src="300 rps.png" alt="Resultado de prueba de carga a 300 rps" />
+        <div class="evidence-caption">Prueba de carga — 300 rps</div>
+      </div>
     </div>
   </div>
 
@@ -264,21 +313,21 @@
 
         <tr class="category-row">
           <td colspan="4">Compute — API & Consumer</td>
-          <td>$216</td>
+          <td>$108</td>
         </tr>
         <tr>
           <td>ECS Fargate — API</td>
-          <td><span class="sku-chip">2 vCPU × 4 GB × 2 tasks</span></td>
-          <td>730 h/mes</td>
-          <td>$0.04048/vCPU-h + $0.004445/GB-h</td>
-          <td>$144</td>
-        </tr>
-        <tr>
-          <td>ECS Fargate — Consumer</td>
           <td><span class="sku-chip">1 vCPU × 2 GB × 2 tasks</span></td>
           <td>730 h/mes</td>
           <td>$0.04048/vCPU-h + $0.004445/GB-h</td>
           <td>$72</td>
+        </tr>
+        <tr>
+          <td>ECS Fargate — Consumer</td>
+          <td><span class="sku-chip">0.5 vCPU × 1 GB × 2 tasks</span></td>
+          <td>730 h/mes</td>
+          <td>$0.04048/vCPU-h + $0.004445/GB-h</td>
+          <td>$36</td>
         </tr>
 
         <tr class="category-row">
@@ -295,76 +344,76 @@
 
         <tr class="category-row">
           <td colspan="4">Time Series DB — InfluxDB (self-hosted)</td>
-          <td>$180</td>
+          <td>$94</td>
         </tr>
         <tr>
           <td>EC2 (InfluxDB host)</td>
-          <td><span class="sku-chip">m5.xlarge (4 vCPU, 16 GB)</span></td>
+          <td><span class="sku-chip">m5.large (2 vCPU, 8 GB)</span></td>
           <td>730 h/mes</td>
-          <td>$0.192/h</td>
-          <td>$140</td>
+          <td>$0.096/h</td>
+          <td>$70</td>
         </tr>
         <tr>
           <td>EBS gp3 (datos InfluxDB)</td>
-          <td><span class="sku-chip">500 GB gp3</span></td>
+          <td><span class="sku-chip">300 GB gp3</span></td>
           <td>1 mes</td>
           <td>$0.08/GB-mes</td>
-          <td>$40</td>
+          <td>$24</td>
         </tr>
 
         <tr class="category-row">
           <td colspan="4">Object Storage — S3 (raw events)</td>
-          <td>$113</td>
+          <td>$9</td>
         </tr>
         <tr>
           <td>S3 Standard — almacenamiento</td>
-          <td><span class="sku-chip">~4,320 GB (30 días retención)</span></td>
+          <td><span class="sku-chip">~389 GB (30 días retención)</span></td>
           <td>1 mes</td>
           <td>$0.023/GB-mes</td>
-          <td>$100</td>
+          <td>$9</td>
         </tr>
         <tr>
           <td>S3 PUT requests</td>
-          <td><span class="sku-chip">~2.6M PUTs/mes (batch 1,000 eventos)</span></td>
+          <td><span class="sku-chip">Archivos horarios (~2,160 PUTs/mes)</span></td>
           <td>—</td>
           <td>$0.005/1,000 PUTs</td>
-          <td>$13</td>
+          <td>~$0</td>
         </tr>
 
         <tr class="category-row">
           <td colspan="4">Networking</td>
-          <td>$107</td>
+          <td>$57</td>
         </tr>
         <tr>
           <td>Application Load Balancer</td>
-          <td><span class="sku-chip">1 ALB + ~10 LCU</span></td>
+          <td><span class="sku-chip">1 ALB + ~3 LCU</span></td>
           <td>730 h/mes</td>
           <td>$0.008/h + $0.008/LCU-h</td>
-          <td>$64</td>
+          <td>$24</td>
         </tr>
         <tr>
           <td>VPC NAT Gateway</td>
-          <td><span class="sku-chip">1 NAT + ~10 GB datos</span></td>
+          <td><span class="sku-chip">1 NAT + ~3 GB datos</span></td>
           <td>730 h/mes</td>
           <td>$0.045/h + $0.045/GB</td>
-          <td>$43</td>
+          <td>$33</td>
         </tr>
 
         <tr class="category-row">
           <td colspan="4">Observabilidad</td>
-          <td>$25</td>
+          <td>$8</td>
         </tr>
         <tr>
           <td>CloudWatch Logs</td>
-          <td><span class="sku-chip">~50 GB logs/mes</span></td>
+          <td><span class="sku-chip">~15 GB logs/mes</span></td>
           <td>1 mes</td>
           <td>$0.50/GB</td>
-          <td>$25</td>
+          <td>$8</td>
         </tr>
 
         <tr class="total-row">
           <td colspan="4">TOTAL MENSUAL (on-demand)</td>
-          <td>≈ $851</td>
+          <td>≈ $486</td>
         </tr>
       </tbody>
     </table>
@@ -387,31 +436,31 @@
       <tbody>
         <tr>
           <td><span class="tier-badge tier-1">Tier 1</span></td>
-          <td>100 rps</td>
+          <td>50 rps</td>
           <td>5 min</td>
           <td>100%</td>
           <td>
             <div class="bar-wrap">
-              <div class="bar" style="width:10%"></div>
-              <span style="font-size:12px;color:#64748b">10%</span>
+              <div class="bar" style="width:17%"></div>
+              <span style="font-size:12px;color:#64748b">17%</span>
             </div>
           </td>
         </tr>
         <tr>
           <td><span class="tier-badge tier-2">Tier 2</span></td>
-          <td>500 rps</td>
+          <td>100 rps</td>
           <td>5 min</td>
           <td>≥ 99.5%</td>
           <td>
             <div class="bar-wrap">
-              <div class="bar" style="width:50%"></div>
-              <span style="font-size:12px;color:#64748b">50%</span>
+              <div class="bar" style="width:33%"></div>
+              <span style="font-size:12px;color:#64748b">33%</span>
             </div>
           </td>
         </tr>
         <tr>
           <td><span class="tier-badge tier-3">Tier 3</span></td>
-          <td>1,000 rps</td>
+          <td>300 rps</td>
           <td>5 min</td>
           <td>≥ 99%</td>
           <td>
@@ -422,10 +471,10 @@
           </td>
         </tr>
         <tr>
-          <td><span class="tier-badge tier-bonus">Tier 4 (bonus)</span></td>
-          <td>2,000 rps burst</td>
+          <td><span class="tier-badge tier-bonus">Burst opcional</span></td>
+          <td>&gt;300 rps</td>
           <td>1 min</td>
-          <td>any survival</td>
+          <td>degradación controlada</td>
           <td>
             <div class="bar-wrap">
               <div class="bar" style="width:100%; background:#fb923c;"></div>
@@ -441,9 +490,9 @@
   <div class="section">
     <h2>Notas de arquitectura</h2>
     <div class="note-box">
-      <strong>¿Por qué no Amazon Managed Kafka (MSK)?</strong> A 1,000 rps con 3 queues, el costo de MSK (kafka.m5.large × 3 brokers) sería <strong>~$420/mes</strong> solo en brokers, sin contar almacenamiento ni transferencia. RabbitMQ en Amazon MQ a $210/mes cubre el mismo caso de uso con menor complejidad operativa. Kafka tiene sentido cuando se necesita replay de eventos o múltiples consumers fan-out, que este sistema no requiere.<br/><br/>
-      <strong>¿Por qué no Amazon Timestream en lugar de InfluxDB?</strong> Timestream cobra $0.50 por millón de writes. A 1,000 rps × 730h × 3,600s = 2,628M writes/mes, eso sería <strong>$1,314/mes</strong> solo en writes, más queries y almacenamiento. InfluxDB self-hosted en EC2 a $180/mes es 7× más barato. El trade-off es que nosotros gestionamos el servidor, pero para una carga predecible es correcto.<br/><br/>
-      <strong>Para Tier 4 (2,000 rps burst):</strong> se necesitaría escalar el consumer a 4 tasks y el API a 4 tasks. Auto Scaling de ECS puede manejarlo en &lt;60s. Costo adicional estimado: +$216/mes si se mantiene permanente, o marginal si solo se activa en bursts.
+      <strong>¿Por qué no Amazon Managed Kafka (MSK)?</strong> A 300 rps con 3 queues, el costo de MSK (kafka.m5.large × 3 brokers) seguiría siendo <strong>~$420/mes</strong> solo en brokers, sin contar almacenamiento ni transferencia. RabbitMQ en Amazon MQ a $210/mes cubre el mismo caso de uso con menor complejidad operativa. Kafka tiene sentido cuando se necesita replay de eventos o múltiples consumers fan-out, que este sistema no requiere.<br/><br/>
+      <strong>¿Por qué no Amazon Timestream en lugar de InfluxDB?</strong> Timestream cobra $0.50 por millón de writes. A 300 rps × 730h × 3,600s = 788M writes/mes, eso sería <strong>~$394/mes</strong> solo en writes, más queries y almacenamiento. InfluxDB self-hosted en EC2 a $94/mes es más barato. El trade-off es que nosotros gestionamos el servidor, pero para una carga predecible es correcto.<br/><br/>
+      <strong>Para bursts por encima de 300 rps:</strong> se necesitaría escalar el consumer a 4 tasks y el API a 4 tasks. Auto Scaling de ECS puede manejarlo en &lt;60s. Costo adicional estimado: +$108/mes si se mantiene permanente, o marginal si solo se activa en bursts.
     </div>
   </div>
 
